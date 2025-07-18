@@ -1,0 +1,28 @@
+pre-commit:
+  piped: true
+  commands:
+    prettier:
+      priority: 1
+      glob: "*.{js,cjs,mjs,jsx,ts,cts,mts,tsx,yml,yaml,md,mdx,json,html,css}"
+      exclude: pnpm-lock.yaml
+      run: |
+        pnpm prettier "{staged_files}" --write
+      stage_fixed: true
+
+    lint:
+      priority: 2
+      glob: "*.{js,cjs,mjs,jsx,ts,cts,mts,tsx}"
+      run: |
+        pnpm eslint "{staged_files}" --no-warn-ignored --max-warnings=0 --fix --cache
+      stage_fixed: true
+
+commit-msg:
+  commands:
+    commitlint:
+      run: pnpm commitlint --edit {1}
+
+post-merge:
+  commands:
+    pnpm:
+      glob: "{package.json,pnpm-lock.yaml}"
+      run: pnpm install
