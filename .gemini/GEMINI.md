@@ -5,3 +5,4 @@
 
 - **要件**: `.gemini/requirements.md`
 - **設計**: `.gemini/design.md`
+- **実装計画**: `.gemini/task.md`
