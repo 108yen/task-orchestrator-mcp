@@ -1,4 +1,3 @@
-import * as fs from "fs"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { Task } from "./storage.js"
 import {
@@ -64,8 +63,6 @@ const {
   __setShouldThrowReadError,
   __setShouldThrowWriteError,
 } = (await import("./storage.js")) as any
-
-const _mockFs = vi.mocked(fs)
 
 describe("Error Handling Tests", () => {
   beforeEach(() => {
@@ -676,8 +673,10 @@ describe("Error Handling Tests", () => {
         // Mock server.registerTool to capture tool handlers
         const toolHandlers: { [key: string]: any } = {}
         const mockRegisterTool = vi.fn(
-          (name: string, config: any, handler: any) => {
+          (name: string, _config: any, handler: any) => {
             toolHandlers[name] = handler
+            // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+            return {} as any
           },
         )
         server.registerTool = mockRegisterTool
@@ -713,8 +712,10 @@ describe("Error Handling Tests", () => {
         // Mock server.registerTool to capture tool handlers
         const toolHandlers: { [key: string]: any } = {}
         const mockRegisterTool = vi.fn(
-          (name: string, config: any, handler: any) => {
+          (name: string, _config: any, handler: any) => {
             toolHandlers[name] = handler
+            // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+            return {} as any
           },
         )
         server.registerTool = mockRegisterTool

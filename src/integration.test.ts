@@ -75,7 +75,7 @@ describe("MCP Task Management Integration Tests", () => {
           description: "",
           id: expect.any(String),
           name: "test task",
-          order: 0,
+          order: 1,
           parent_id: undefined,
           resolution: undefined,
           status: "todo",

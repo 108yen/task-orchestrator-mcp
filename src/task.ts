@@ -13,18 +13,38 @@ export function createTask(params: {
   order?: number
   parent_id?: string
 }): Task {
-  const { description = "", name, order = 0, parent_id } = params
+  const { description = "", name, parent_id } = params
+  let { order } = params
 
   if (!name || typeof name !== "string" || name.trim() === "") {
     throw new Error("Task name is required and must be a non-empty string")
   }
 
+  const tasks = readTasks()
+
   // Validate parent_id exists if provided
   if (parent_id) {
-    const tasks = readTasks()
     const parentExists = tasks.some((task) => task.id === parent_id)
     if (!parentExists) {
       throw new Error(`Parent task with id '${parent_id}' does not exist`)
+    }
+  }
+
+  const siblings = tasks.filter((task) => task.parent_id === parent_id)
+
+  if (order === undefined) {
+    // If order is not specified, assign the max order + 1
+    order =
+      siblings.length > 0 ? Math.max(...siblings.map((t) => t.order)) + 1 : 1
+  } else {
+    // If order is specified and conflicts, shift existing tasks
+    const conflict = siblings.some((t) => t.order === order)
+    if (conflict) {
+      tasks.forEach((t) => {
+        if (t.parent_id === parent_id && t.order >= (order as number)) {
+          t.order += 1
+        }
+      })
     }
   }
 
@@ -40,7 +60,6 @@ export function createTask(params: {
     updatedAt: now,
   }
 
-  const tasks = readTasks()
   tasks.push(task)
   writeTasks(tasks)
 

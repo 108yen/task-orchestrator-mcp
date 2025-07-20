@@ -48,7 +48,7 @@ describe("Task Management", () => {
       expect(task).toMatchObject({
         description: "",
         name: "Test Task",
-        order: 0,
+        order: 1,
         status: "todo",
       })
       expect(task.id).toBeDefined()
@@ -105,6 +105,31 @@ describe("Task Management", () => {
 
       expect(task.name).toBe("Test Task")
       expect(task.description).toBe("Test description")
+    })
+
+    it("should assign order = 1 if not specified and no siblings", () => {
+      const task = createTask({ name: "Test Task" })
+      expect(task.order).toBe(1)
+    })
+
+    it("should assign max order + 1 if not specified", () => {
+      createTask({ name: "Task 1", order: 5 })
+      const task2 = createTask({ name: "Task 2" })
+      expect(task2.order).toBe(6)
+    })
+
+    it("should shift existing orders if specified order conflicts", () => {
+      const task1 = createTask({ name: "Task 1", order: 1 })
+      const task2 = createTask({ name: "Task 2", order: 2 })
+      const task3 = createTask({ name: "Task 3", order: 1 }) // Conflict with task1
+
+      const tasks = listTasks()
+      const updatedTask1 = tasks.find((t) => t.id === task1.id)
+      const updatedTask2 = tasks.find((t) => t.id === task2.id)
+
+      expect(task3.order).toBe(1)
+      expect(updatedTask1?.order).toBe(2)
+      expect(updatedTask2?.order).toBe(3)
     })
   })
 
