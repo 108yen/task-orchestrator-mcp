@@ -1,0 +1,77 @@
+import { existsSync, readFileSync, writeFileSync } from "fs"
+
+/**
+ * Task interface representing a task in the system
+ */
+export interface Task {
+  createdAt: Date // タスクの作成日時
+  description: string // タスクの詳細な説明
+  id: string // タスクを一意に識別するためのID（UUID）
+  name: string // タスクの名称
+  order: number // 兄弟タスク内での実行順序を示す数値
+  parent_id?: string // 親タスクのID（トップレベルの場合はundefined）
+  resolution?: string // タスク完了時の状態や結果（未完了時はundefined）
+  status: string // タスクの進捗状況（'todo', 'in_progress', 'done'）
+  updatedAt: Date // タスクの最終更新日時
+}
+
+// In-memory storage for when FILE_PATH is not set
+let memoryTasks: Task[] = []
+
+/**
+ * Read tasks from storage (file or memory based on FILE_PATH environment variable)
+ * @returns Array of tasks
+ */
+export function readTasks(): Task[] {
+  const filePath = process.env.FILE_PATH
+
+  if (filePath) {
+    // File-based storage mode
+    try {
+      if (existsSync(filePath)) {
+        const fileContent = readFileSync(filePath, "utf-8")
+        const tasks = JSON.parse(fileContent) as Task[]
+
+        // Convert date strings back to Date objects
+        return tasks.map((task) => ({
+          ...task,
+          createdAt: new Date(task.createdAt),
+          updatedAt: new Date(task.updatedAt),
+        }))
+      } else {
+        // File doesn't exist, return empty array
+        return []
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("Error reading tasks from file:", error)
+      return []
+    }
+  } else {
+    // In-memory storage mode
+    return memoryTasks
+  }
+}
+
+/**
+ * Write tasks to storage (file or memory based on FILE_PATH environment variable)
+ * @param tasks Array of tasks to write
+ */
+export function writeTasks(tasks: Task[]): void {
+  const filePath = process.env.FILE_PATH
+
+  if (filePath) {
+    // File-based storage mode
+    try {
+      const jsonContent = JSON.stringify(tasks, null, 2)
+      writeFileSync(filePath, jsonContent, "utf-8")
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("Error writing tasks to file:", error)
+      throw error
+    }
+  } else {
+    // In-memory storage mode
+    memoryTasks = [...tasks]
+  }
+}
