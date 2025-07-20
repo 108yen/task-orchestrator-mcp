@@ -36,21 +36,40 @@ describe("MCP Task Management Integration Tests", () => {
 
   // Clear tasks before each test to ensure clean state
   beforeEach(async () => {
-    // Get all tasks and delete them to start fresh
-    const listResult = (await client.callTool({
-      arguments: {},
-      name: "listTasks",
-    })) as MCPResponse
+    const deleteAllTasks = async () => {
+      const listResult = (await client.callTool({
+        arguments: {},
+        name: "listTasks",
+      })) as MCPResponse
 
-    if (listResult.content?.[0]?.text) {
-      const { tasks } = JSON.parse(listResult.content[0].text)
-      for (const task of tasks) {
+      if (listResult.isError || !listResult.content?.[0]?.text) {
+        return // No tasks or error, stop recursion
+      }
+
+      const { tasks } = parseMCPResponse(listResult)
+      if (tasks.length === 0) {
+        return // No tasks, stop recursion
+      }
+
+      const parentIds = new Set(tasks.map((t: any) => t.parent_id))
+      const tasksToDelete = tasks.filter((t: any) => !parentIds.has(t.id))
+
+      if (tasksToDelete.length === 0) {
+        return // No leaf tasks to delete, stop recursion (shouldn't happen with valid data)
+      }
+
+      for (const task of tasksToDelete) {
         await client.callTool({
           arguments: { id: task.id },
           name: "deleteTask",
         })
       }
+
+      // Recursively call to delete remaining tasks
+      await deleteAllTasks()
     }
+
+    await deleteAllTasks()
   })
 
   describe("tools", () => {
@@ -126,6 +145,60 @@ describe("MCP Task Management Integration Tests", () => {
             /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
           ),
         })
+      })
+
+      it("should assign order automatically if not provided", async () => {
+        // Create first task, should have order 1
+        const result1 = (await client.callTool({
+          arguments: { name: "task 1" },
+          name: "createTask",
+        })) as MCPResponse
+        const task1 = parseMCPResponse(result1).task
+        expect(task1.order).toBe(1)
+
+        // Create second task, should have order 2
+        const result2 = (await client.callTool({
+          arguments: { name: "task 2" },
+          name: "createTask",
+        })) as MCPResponse
+        const task2 = parseMCPResponse(result2).task
+        expect(task2.order).toBe(2)
+      })
+
+      it("should shift orders correctly on conflict", async () => {
+        // Create task with order 1
+        const result1 = (await client.callTool({
+          arguments: { name: "task 1", order: 1 },
+          name: "createTask",
+        })) as MCPResponse
+        const task1 = parseMCPResponse(result1).task
+
+        // Create task with order 2
+        await client.callTool({
+          arguments: { name: "task 2", order: 2 },
+          name: "createTask",
+        })
+
+        // Create a new task with conflicting order 1
+        const result3 = (await client.callTool({
+          arguments: { name: "task 3", order: 1 },
+          name: "createTask",
+        })) as MCPResponse
+        const task3 = parseMCPResponse(result3).task
+        expect(task3.order).toBe(1)
+
+        // Verify other tasks were shifted
+        const listResult = (await client.callTool({
+          arguments: {},
+          name: "listTasks",
+        })) as MCPResponse
+        const { tasks } = parseMCPResponse(listResult)
+
+        const updatedTask1 = tasks.find((t: any) => t.id === task1.id)
+        expect(updatedTask1?.order).toBe(2)
+
+        const originalTask2 = tasks.find((t: any) => t.name === "task 2")
+        expect(originalTask2?.order).toBe(3)
       })
     })
 
