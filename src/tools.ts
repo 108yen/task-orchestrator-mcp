@@ -1,0 +1,361 @@
+import { z } from "zod"
+import { server } from "./server.js"
+import {
+  completeTask,
+  createTask,
+  deleteTask,
+  getTask,
+  listTasks,
+  startTask,
+  updateTask,
+} from "./task.js"
+
+/**
+ * Register all task management tools with the MCP server
+ */
+export function registerTools(): void {
+  // Register createTask tool
+  server.registerTool(
+    "createTask",
+    {
+      description: "Create a new task with optional parent and ordering",
+      inputSchema: {
+        description: z
+          .string()
+          .describe("Task description (optional)")
+          .optional(),
+        name: z.string().describe("Task name (required)"),
+        order: z
+          .number()
+          .describe("Order within siblings (optional, defaults to 0)")
+          .optional(),
+        parent_id: z
+          .string()
+          .describe("Parent task ID for hierarchical organization (optional)")
+          .optional(),
+      },
+    },
+    (args) => {
+      try {
+        const task = createTask(args)
+        return {
+          content: [
+            {
+              text: JSON.stringify({ task }, null, 2),
+              type: "text",
+            },
+          ],
+        }
+      } catch (error) {
+        return {
+          content: [
+            {
+              text: JSON.stringify(
+                {
+                  error: {
+                    code: "TASK_CREATION_ERROR",
+                    message:
+                      error instanceof Error ? error.message : "Unknown error",
+                  },
+                },
+                null,
+                2,
+              ),
+              type: "text",
+            },
+          ],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // Register getTask tool
+  server.registerTool(
+    "getTask",
+    {
+      description: "Get a task by its ID",
+      inputSchema: {
+        id: z.string().describe("Task ID"),
+      },
+    },
+    (args) => {
+      try {
+        const task = getTask(args.id)
+        return {
+          content: [
+            {
+              text: JSON.stringify({ task }, null, 2),
+              type: "text",
+            },
+          ],
+        }
+      } catch (error) {
+        return {
+          content: [
+            {
+              text: JSON.stringify(
+                {
+                  error: {
+                    code: "TASK_NOT_FOUND",
+                    message:
+                      error instanceof Error ? error.message : "Unknown error",
+                  },
+                },
+                null,
+                2,
+              ),
+              type: "text",
+            },
+          ],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // Register listTasks tool
+  server.registerTool(
+    "listTasks",
+    {
+      description: "List tasks, optionally filtered by parent_id",
+      inputSchema: {
+        parent_id: z
+          .string()
+          .describe("Filter tasks by parent ID (optional)")
+          .optional(),
+      },
+    },
+    (args) => {
+      try {
+        const tasks = listTasks(args)
+        return {
+          content: [
+            {
+              text: JSON.stringify({ tasks }, null, 2),
+              type: "text",
+            },
+          ],
+        }
+      } catch (error) {
+        return {
+          content: [
+            {
+              text: JSON.stringify(
+                {
+                  error: {
+                    code: "TASK_LIST_ERROR",
+                    message:
+                      error instanceof Error ? error.message : "Unknown error",
+                  },
+                },
+                null,
+                2,
+              ),
+              type: "text",
+            },
+          ],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // Register updateTask tool
+  server.registerTool(
+    "updateTask",
+    {
+      description: "Update an existing task",
+      inputSchema: {
+        description: z
+          .string()
+          .describe("Updated task description (optional)")
+          .optional(),
+        id: z.string().describe("Task ID"),
+        name: z.string().describe("Updated task name (optional)").optional(),
+        order: z
+          .number()
+          .describe("Updated order within siblings (optional)")
+          .optional(),
+        parent_id: z
+          .string()
+          .describe("Updated parent task ID (optional)")
+          .optional(),
+        resolution: z
+          .string()
+          .describe("Task resolution details (optional)")
+          .optional(),
+        status: z
+          .enum(["todo", "in_progress", "done"])
+          .describe("Updated task status (optional)")
+          .optional(),
+      },
+    },
+    (args) => {
+      try {
+        const task = updateTask(args)
+        return {
+          content: [
+            {
+              text: JSON.stringify({ task }, null, 2),
+              type: "text",
+            },
+          ],
+        }
+      } catch (error) {
+        return {
+          content: [
+            {
+              text: JSON.stringify(
+                {
+                  error: {
+                    code: "TASK_UPDATE_ERROR",
+                    message:
+                      error instanceof Error ? error.message : "Unknown error",
+                  },
+                },
+                null,
+                2,
+              ),
+              type: "text",
+            },
+          ],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // Register deleteTask tool
+  server.registerTool(
+    "deleteTask",
+    {
+      description: "Delete a task by its ID",
+      inputSchema: {
+        id: z.string().describe("Task ID"),
+      },
+    },
+    (args) => {
+      try {
+        const result = deleteTask(args.id)
+        return {
+          content: [
+            {
+              text: JSON.stringify(result, null, 2),
+              type: "text",
+            },
+          ],
+        }
+      } catch (error) {
+        return {
+          content: [
+            {
+              text: JSON.stringify(
+                {
+                  error: {
+                    code: "TASK_DELETE_ERROR",
+                    message:
+                      error instanceof Error ? error.message : "Unknown error",
+                  },
+                },
+                null,
+                2,
+              ),
+              type: "text",
+            },
+          ],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // Register startTask tool
+  server.registerTool(
+    "startTask",
+    {
+      description: "Start a task (change status to in_progress)",
+      inputSchema: {
+        id: z.string().describe("Task ID"),
+      },
+    },
+    (args) => {
+      try {
+        const task = startTask(args.id)
+        return {
+          content: [
+            {
+              text: JSON.stringify({ task }, null, 2),
+              type: "text",
+            },
+          ],
+        }
+      } catch (error) {
+        return {
+          content: [
+            {
+              text: JSON.stringify(
+                {
+                  error: {
+                    code: "TASK_START_ERROR",
+                    message:
+                      error instanceof Error ? error.message : "Unknown error",
+                  },
+                },
+                null,
+                2,
+              ),
+              type: "text",
+            },
+          ],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // Register completeTask tool
+  server.registerTool(
+    "completeTask",
+    {
+      description: "Complete a task and get the next task to execute",
+      inputSchema: {
+        id: z.string().describe("Task ID"),
+        resolution: z.string().describe("Task completion resolution/details"),
+      },
+    },
+    (args) => {
+      try {
+        const result = completeTask(args)
+        return {
+          content: [
+            {
+              text: JSON.stringify(result, null, 2),
+              type: "text",
+            },
+          ],
+        }
+      } catch (error) {
+        return {
+          content: [
+            {
+              text: JSON.stringify(
+                {
+                  error: {
+                    code: "TASK_COMPLETE_ERROR",
+                    message:
+                      error instanceof Error ? error.message : "Unknown error",
+                  },
+                },
+                null,
+                2,
+              ),
+              type: "text",
+            },
+          ],
+          isError: true,
+        }
+      }
+    },
+  )
+}
