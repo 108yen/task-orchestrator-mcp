@@ -65,7 +65,7 @@
   - 全ツールの正常登録を検証する
   - _Requirements: 5.1, 5.2_
 
-- [ ] 3.4 MCPサーバーとツール登録の品質チェック
+- [x] 3.4 MCPサーバーとツール登録の品質チェック
   - `pnpm quality`を実行してlint、format、typecheck、testを確認する
   - 発見されたエラーや警告を修正する
   - _Requirements: コード品質保証_

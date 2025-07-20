@@ -109,8 +109,13 @@ export function updateTask(params: {
     throw new Error(`Task with id '${id}' not found`)
   }
 
+  const currentTask = tasks[taskIndex]
+  if (!currentTask) {
+    throw new Error(`Task with id '${id}' not found`)
+  }
+
   // Validate parent_id exists if provided and different from current
-  if (parent_id !== undefined && parent_id !== tasks[taskIndex].parent_id) {
+  if (parent_id !== undefined && parent_id !== currentTask.parent_id) {
     if (parent_id) {
       const parentExists = tasks.some((task) => task.id === parent_id)
       if (!parentExists) {
@@ -134,7 +139,7 @@ export function updateTask(params: {
   }
 
   const updatedTask: Task = {
-    ...tasks[taskIndex],
+    ...currentTask,
     updatedAt: new Date(),
   }
 
@@ -224,6 +229,9 @@ export function startTask(id: string): Task {
   }
 
   const task = tasks[taskIndex]
+  if (!task) {
+    throw new Error(`Task with id '${id}' not found`)
+  }
 
   if (task.status === "done") {
     throw new Error(`Task '${id}' is already completed`)
@@ -276,6 +284,9 @@ export function completeTask(params: { id: string; resolution: string }): {
   }
 
   const task = tasks[taskIndex]
+  if (!task) {
+    throw new Error(`Task with id '${id}' not found`)
+  }
 
   if (task.status === "done") {
     throw new Error(`Task '${id}' is already completed`)
