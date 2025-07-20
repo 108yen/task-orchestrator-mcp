@@ -170,7 +170,7 @@ export function updateTask(params: {
   }
 
   if (order !== undefined) {
-    if (typeof order !== "number" || order < 0) {
+    if (typeof order !== "number" || order < 0 || !Number.isFinite(order)) {
       throw new Error("Order must be a non-negative number")
     }
     updatedTask.order = order

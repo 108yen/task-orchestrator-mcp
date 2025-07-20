@@ -1,4 +1,4 @@
 {
-  "words": ["lefthook", "modelcontextprotocol", "tsdown", "Vitest"],
+  "words": ["lefthook", "modelcontextprotocol", "nono", "tsdown", "Vitest"],
   "ignorePaths": ["dist", "node_modules", ".eslintcache"]
 }
