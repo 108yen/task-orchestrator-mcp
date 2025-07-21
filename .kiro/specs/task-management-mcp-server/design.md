@@ -41,19 +41,68 @@ interface Task {
   createdAt: Date // タスクの作成日時
   updatedAt: Date // タスクの最終更新日時
 }
+
+interface ProgressSummary {
+  table: string // マークダウン形式のテーブル文字列
+  total_tasks: number // 全タスク数
+  completed_tasks: number // 完了済みタスク数
+  in_progress_tasks: number // 進行中タスク数
+  todo_tasks: number // 未着手タスク数
+  completion_percentage: number // 完了率（0-100）
+}
+
+interface TaskProgressRow {
+  task_name: string // タスク名
+  status: string // ステータス
+  completed_subtasks: number // 完了済みサブタスク数
+  total_subtasks: number // 総サブタスク数
+  progress_percentage: number // 進捗率（0-100）
+}
 ```
 
 ### MCPツールインターフェース
 
-| 機能           | ツール名       | 入力パラメータ                                                               | 出力                                         |
-| :------------- | :------------- | :--------------------------------------------------------------------------- | :------------------------------------------- |
-| **タスク作成** | `createTask`   | `{ name: string, description?: string, parent_id?: string, order?: number }` | `{ task: Task }`                             |
-| **タスク取得** | `getTask`      | `{ id: string }`                                                             | `{ task: Task }`                             |
-| **タスク一覧** | `listTasks`    | `{ parent_id?: string }`                                                     | `{ tasks: Task[] }`                          |
-| **タスク更新** | `updateTask`   | `{ id: string, name?: string, description?: string, status?: string, ... }`  | `{ task: Task }`                             |
-| **タスク削除** | `deleteTask`   | `{ id: string }`                                                             | `{ id: string }`                             |
-| **タスク開始** | `startTask`    | `{ id: string }`                                                             | `{ task: Task }`                             |
-| **タスク完了** | `completeTask` | `{ id: string, resolution: string }`                                         | `{ next_task_id?: string, message: string }` |
+| 機能           | ツール名       | 入力パラメータ                                                               | 出力                                                                            |
+| :------------- | :------------- | :--------------------------------------------------------------------------- | :------------------------------------------------------------------------------ |
+| **タスク作成** | `createTask`   | `{ name: string, description?: string, parent_id?: string, order?: number }` | `{ task: Task }`                                                                |
+| **タスク取得** | `getTask`      | `{ id: string }`                                                             | `{ task: Task }`                                                                |
+| **タスク一覧** | `listTasks`    | `{ parent_id?: string }`                                                     | `{ tasks: Task[] }`                                                             |
+| **タスク更新** | `updateTask`   | `{ id: string, name?: string, description?: string, status?: string, ... }`  | `{ task: Task }`                                                                |
+| **タスク削除** | `deleteTask`   | `{ id: string }`                                                             | `{ id: string }`                                                                |
+| **タスク開始** | `startTask`    | `{ id: string }`                                                             | `{ task: Task }`                                                                |
+| **タスク完了** | `completeTask` | `{ id: string, resolution: string }`                                         | `{ next_task_id?: string, message: string, progress_summary: ProgressSummary }` |
+
+#### タスク作成時のorder処理ロジック
+
+- **order未指定時**: 同一parent_id内の兄弟タスクの最大order値+1を自動割り当て（兄弟がいない場合は1）
+- **order指定時**: 指定されたorder値が既存タスクと重複する場合、既存の同一parent_id内のタスクでorder値が指定値以上のものを1ずつ増加させて挿入処理を実行
+
+#### タスク完了時の進捗サマリー生成ロジック
+
+`completeTask`実行時に、以下の情報を含む進捗サマリーを生成します：
+
+**全体統計**
+
+- 総タスク数、完了済み数、進行中数、未着手数
+- 全体完了率（完了済み数 / 総タスク数 × 100）
+
+**階層別進捗テーブル**
+
+- 各親タスク（サブタスクを持つタスク）の進捗状況をマークダウンテーブル形式で表示
+- 各行には以下の情報を含む：
+  - タスク名
+  - ステータス（todo/in_progress/done）
+  - 完了済みサブタスク数 / 総サブタスク数
+  - 進捗率（完了済みサブタスク数 / 総サブタスク数 × 100）
+
+**テーブル形式例**
+
+```markdown
+| Task Name     | Status      | Subtasks | Progress |
+| ------------- | ----------- | -------- | -------- |
+| Main Feature  | in_progress | 3/5      | 60%      |
+| Sub Feature A | done        | 2/2      | 100%     |
+```
 
 ### ストレージインターフェース
 
@@ -71,6 +120,8 @@ export function writeTasks(tasks: Task[]): void
 
 - **階層関係**: `parent_id`により親子関係を表現
 - **実行順序**: 同一親の下で`order`フィールドにより順序制御
+  - order未指定時: 兄弟タスクの最大order+1を自動割り当て
+  - order指定時: 重複する場合は既存タスクを1ずつシフトして挿入
 - **ステータス管理**: `todo` → `in_progress` → `done`の状態遷移
 - **タイムスタンプ**: 作成・更新時刻の自動記録
 
