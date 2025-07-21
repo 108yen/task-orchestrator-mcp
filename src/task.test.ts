@@ -340,8 +340,12 @@ describe("Task Management", () => {
       expect(startResult.task.updatedAt.getTime()).toBeGreaterThan(
         result.task.updatedAt.getTime(),
       )
-      expect(startResult.message).toBe("Task 'Test' started.")
-      expect(startResult.subtask).toBeUndefined()
+      expect(startResult.message).toBe(
+        "Task 'Test' started. No incomplete subtasks found.",
+      )
+      expect(startResult.started_tasks).toHaveLength(1)
+      expect(startResult.started_tasks[0]?.id).toBe(result.task.id)
+      expect(startResult.hierarchy_summary).toBeDefined()
 
       vi.useRealTimers()
     })
@@ -362,11 +366,13 @@ describe("Task Management", () => {
       const startResult = startTask(parentResult.task.id)
 
       expect(startResult.task.status).toBe("in_progress")
-      expect(startResult.subtask).toBeDefined()
-      expect(startResult.subtask?.id).toBe(childResult1.task.id)
-      expect(startResult.subtask?.status).toBe("in_progress")
+      expect(startResult.started_tasks).toHaveLength(2) // Parent + first child
+      expect(
+        startResult.started_tasks.find((t) => t.id === childResult1.task.id)
+          ?.status,
+      ).toBe("in_progress")
       expect(startResult.message).toContain(
-        "First incomplete subtask 'Child 1' also started automatically",
+        "Direct subtask 'Child 1' also started automatically",
       )
 
       // Verify child 2 is still todo
@@ -391,8 +397,10 @@ describe("Task Management", () => {
       const startResult = startTask(parentResult.task.id)
 
       expect(startResult.task.status).toBe("in_progress")
-      expect(startResult.subtask).toBeUndefined()
-      expect(startResult.message).toBe("Task 'Parent Task' started.")
+      expect(startResult.started_tasks).toHaveLength(1) // Only parent task
+      expect(startResult.message).toBe(
+        "Task 'Parent Task' started. No incomplete subtasks found.",
+      )
     })
 
     it("should throw error for non-existent task", () => {
@@ -417,6 +425,256 @@ describe("Task Management", () => {
       expect(() => startTask(result.task.id)).toThrow(
         /Task .* is already in progress/,
       )
+    })
+
+    it("should start nested tasks recursively to deepest incomplete subtask", () => {
+      // Create a 3-level hierarchy: Parent -> Child -> Grandchild
+      const parentResult = createTask({ name: "Parent Task" })
+      const childResult = createTask({
+        name: "Child Task",
+        parent_id: parentResult.task.id,
+      })
+      const grandchildResult = createTask({
+        name: "Grandchild Task",
+        parent_id: childResult.task.id,
+      })
+
+      const startResult = startTask(parentResult.task.id)
+
+      // All 3 tasks should be started (parent, child, grandchild)
+      expect(startResult.started_tasks).toHaveLength(3)
+      expect(startResult.task.status).toBe("in_progress")
+
+      // Verify all tasks in the path are started
+      const startedIds = startResult.started_tasks.map((t) => t.id)
+      expect(startedIds).toContain(parentResult.task.id)
+      expect(startedIds).toContain(childResult.task.id)
+      expect(startedIds).toContain(grandchildResult.task.id)
+
+      expect(startResult.message).toContain("Auto-started 2 nested tasks")
+      expect(startResult.message).toContain("Grandchild Task")
+    })
+
+    it("should handle mixed depth hierarchy correctly", () => {
+      // Create mixed hierarchy: Parent has 2 children, first child has grandchild
+      const parentResult = createTask({ name: "Parent Task" })
+      const child1Result = createTask({
+        name: "Child 1",
+        order: 1,
+        parent_id: parentResult.task.id,
+      })
+      const child2Result = createTask({
+        name: "Child 2",
+        order: 2,
+        parent_id: parentResult.task.id,
+      })
+      const grandchild1Result = createTask({
+        name: "Grandchild 1",
+        parent_id: child1Result.task.id,
+      })
+
+      const startResult = startTask(parentResult.task.id)
+
+      // Should start parent, child1, and grandchild1 (following first path)
+      expect(startResult.started_tasks).toHaveLength(3)
+
+      const startedIds = startResult.started_tasks.map((t) => t.id)
+      expect(startedIds).toContain(parentResult.task.id)
+      expect(startedIds).toContain(child1Result.task.id)
+      expect(startedIds).toContain(grandchild1Result.task.id)
+
+      // Child 2 should remain todo
+      const child2 = getTask(child2Result.task.id)
+      expect(child2.status).toBe("todo")
+    })
+
+    it("should skip completed tasks and find deepest incomplete", () => {
+      // Create 3-level hierarchy and complete the middle task
+      const parentResult = createTask({ name: "Parent Task" })
+      const child1Result = createTask({
+        name: "Child 1",
+        order: 1,
+        parent_id: parentResult.task.id,
+      })
+      const child2Result = createTask({
+        name: "Child 2",
+        order: 2,
+        parent_id: parentResult.task.id,
+      })
+      const grandchild2Result = createTask({
+        name: "Grandchild 2",
+        parent_id: child2Result.task.id,
+      })
+
+      // Complete child 1
+      updateTask({
+        id: child1Result.task.id,
+        resolution: "Completed",
+        status: "done",
+      })
+
+      const startResult = startTask(parentResult.task.id)
+
+      // Should start parent, child2, and grandchild2 (skipping completed child1)
+      expect(startResult.started_tasks).toHaveLength(3)
+
+      const startedIds = startResult.started_tasks.map((t) => t.id)
+      expect(startedIds).toContain(parentResult.task.id)
+      expect(startedIds).toContain(child2Result.task.id)
+      expect(startedIds).toContain(grandchild2Result.task.id)
+
+      // Child 1 should remain done
+      const child1 = getTask(child1Result.task.id)
+      expect(child1.status).toBe("done")
+    })
+
+    it("should generate hierarchy summary", () => {
+      const parentResult = createTask({ name: "Parent Task" })
+      createTask({
+        name: "Child Task",
+        parent_id: parentResult.task.id,
+      })
+
+      const startResult = startTask(parentResult.task.id)
+
+      expect(startResult.hierarchy_summary).toBeDefined()
+      expect(startResult.hierarchy_summary).toContain("Parent Task")
+      expect(startResult.hierarchy_summary).toContain("Child Task")
+      expect(startResult.hierarchy_summary).toContain("in_progress")
+    })
+
+    it("should generate detailed hierarchy summary with correct indentation", () => {
+      // Create 3-level hierarchy
+      const parentResult = createTask({ name: "Root Task" })
+      const child1Result = createTask({
+        name: "Level 1 Task",
+        parent_id: parentResult.task.id,
+      })
+      createTask({
+        name: "Level 2 Task",
+        parent_id: child1Result.task.id,
+      })
+
+      const startResult = startTask(parentResult.task.id)
+
+      expect(startResult.hierarchy_summary).toBeDefined()
+      const summary = startResult.hierarchy_summary!
+
+      // Check that all tasks are included
+      expect(summary).toContain("Root Task")
+      expect(summary).toContain("Level 1 Task")
+      expect(summary).toContain("Level 2 Task")
+
+      // Check indentation structure (each level should have proper indentation)
+      const lines = summary.split("\n")
+      const taskLines = lines.filter((line) => line.includes("Task"))
+
+      // Root task should have no indentation in table content
+      const rootLine = taskLines.find((line) => line.includes("Root Task"))
+      expect(rootLine).toBeDefined()
+
+      // Level 1 should have 2 spaces indentation
+      const level1Line = taskLines.find((line) => line.includes("Level 1 Task"))
+      expect(level1Line).toBeDefined()
+      expect(level1Line).toContain("  Level 1 Task")
+
+      // Level 2 should have 4 spaces indentation
+      const level2Line = taskLines.find((line) => line.includes("Level 2 Task"))
+      expect(level2Line).toBeDefined()
+      expect(level2Line).toContain("    Level 2 Task")
+    })
+
+    it("should show correct status indicators in hierarchy summary", () => {
+      const parentResult = createTask({ name: "Parent Task" })
+      createTask({
+        name: "Active Child",
+        parent_id: parentResult.task.id,
+      })
+      const child2Result = createTask({
+        name: "Completed Child",
+        order: 2,
+        parent_id: parentResult.task.id,
+      })
+      createTask({
+        name: "Todo Child",
+        order: 3,
+        parent_id: parentResult.task.id,
+      })
+
+      // Complete child2 first
+      updateTask({
+        id: child2Result.task.id,
+        resolution: "Done",
+        status: "done",
+      })
+
+      const startResult = startTask(parentResult.task.id)
+      const summary = startResult.hierarchy_summary!
+
+      // Parent and active child should show in_progress status
+      expect(summary).toContain("⚡ in_progress")
+
+      // Completed child should show done status
+      expect(summary).toContain("✅ done")
+
+      // Todo child should show todo status
+      expect(summary).toContain("📋 todo")
+    })
+
+    it("should handle complex mixed hierarchy in summary", () => {
+      // Create complex structure:
+      // Root
+      // ├── Branch A
+      // │   ├── Leaf A1
+      // │   └── Leaf A2
+      // └── Branch B
+      //     └── Leaf B1
+      const rootResult = createTask({ name: "Root Project" })
+      const branchAResult = createTask({
+        name: "Branch A",
+        order: 1,
+        parent_id: rootResult.task.id,
+      })
+      const branchBResult = createTask({
+        name: "Branch B",
+        order: 2,
+        parent_id: rootResult.task.id,
+      })
+      createTask({
+        name: "Leaf A1",
+        order: 1,
+        parent_id: branchAResult.task.id,
+      })
+      createTask({
+        name: "Leaf A2",
+        order: 2,
+        parent_id: branchAResult.task.id,
+      })
+      createTask({
+        name: "Leaf B1",
+        parent_id: branchBResult.task.id,
+      })
+
+      const startResult = startTask(rootResult.task.id)
+      const summary = startResult.hierarchy_summary!
+
+      // Verify all nodes are present
+      expect(summary).toContain("Root Project")
+      expect(summary).toContain("Branch A")
+      expect(summary).toContain("Branch B")
+      expect(summary).toContain("Leaf A1")
+      expect(summary).toContain("Leaf A2")
+      expect(summary).toContain("Leaf B1")
+
+      // Check proper hierarchical structure
+      const lines = summary.split("\n")
+      const rootIndex = lines.findIndex((line) => line.includes("Root Project"))
+      const branchAIndex = lines.findIndex((line) => line.includes("Branch A"))
+      const leafA1Index = lines.findIndex((line) => line.includes("Leaf A1"))
+
+      // Hierarchy should be in order
+      expect(rootIndex).toBeLessThan(branchAIndex)
+      expect(branchAIndex).toBeLessThan(leafA1Index)
     })
   })
 
@@ -477,12 +735,19 @@ describe("Task Management", () => {
         parent_id: parentResult.task.id,
       })
 
+      // Complete the child task - this should auto-complete the parent too
       const completeResult = completeTask({
-        id: parentResult.task.id,
-        resolution: "Done",
+        id: childResult.task.id,
+        resolution: "Child completed",
       })
 
-      expect(completeResult.next_task_id).toBe(childResult.task.id)
+      // Verify that the parent was automatically completed
+      const parentTask = getTask(parentResult.task.id)
+      expect(parentTask.status).toBe("done")
+
+      // Since there are no more tasks, next_task_id should be undefined
+      expect(completeResult.next_task_id).toBeUndefined()
+      expect(completeResult.message).toContain("No more tasks to execute")
     })
 
     it("should return no next task when all done", () => {
@@ -544,29 +809,36 @@ describe("Task Management", () => {
         name: "Child 1",
         parent_id: parentResult.task.id,
       })
-      createTask({ name: "Child 2", parent_id: parentResult.task.id }) // Create second child without storing reference
+      const childResult2 = createTask({
+        name: "Child 2",
+        parent_id: parentResult.task.id,
+      })
 
-      // Complete one child task
+      // Complete first child task
       completeTask({ id: childResult1.task.id, resolution: "Done" })
 
-      // Complete parent and check progress summary
+      // Complete second child task - this should auto-complete the parent too
       const completeResult = completeTask({
-        id: parentResult.task.id,
+        id: childResult2.task.id,
         resolution: "Done",
       })
 
-      // Verify table format and content
+      // Verify that the parent was automatically completed
+      const parentTask = getTask(parentResult.task.id)
+      expect(parentTask.status).toBe("done")
+
+      // Verify table format and content - since both children are done, parent shows 100%
       expect(completeResult.progress_summary.table).toContain(
         "| Task Name | Status | Subtasks | Progress |",
       )
       expect(completeResult.progress_summary.table).toContain(
-        "| Parent Task | done | 1/2 | 50% |",
+        "| Parent Task | done | 2/2 | 100% |",
       )
 
       // Verify overall statistics
       expect(completeResult.progress_summary.total_tasks).toBe(3)
-      expect(completeResult.progress_summary.completed_tasks).toBe(2)
-      expect(completeResult.progress_summary.completion_percentage).toBe(67) // 2/3 = ~67%
+      expect(completeResult.progress_summary.completed_tasks).toBe(3) // All tasks completed
+      expect(completeResult.progress_summary.completion_percentage).toBe(100) // 3/3 = 100%
     })
 
     it("should handle complex hierarchical task structures", () => {
@@ -595,28 +867,250 @@ describe("Task Management", () => {
       completeTask({ id: childResult1.task.id, resolution: "Done" })
       completeTask({ id: subResult2.task.id, resolution: "Done" })
 
-      // Start childTask2 to test mixed status
+      // Start and complete childTask2 - this will auto-complete subTask1 and mainTask
       startTask(childResult2.task.id)
-
-      // Complete subTask1 and check progress
       const completeResult = completeTask({
-        id: subResult1.task.id,
+        id: childResult2.task.id,
         resolution: "Done",
       })
 
+      // Verify that all parent tasks were automatically completed
+      const updatedSubTask1 = getTask(subResult1.task.id)
+      const updatedMainTask = getTask(mainResult.task.id)
+      expect(updatedSubTask1.status).toBe("done")
+      expect(updatedMainTask.status).toBe("done")
+
       // Verify table includes both parent tasks with correct progress
       const table = completeResult.progress_summary.table
-      expect(table).toContain("| Main Task | todo | 2/2 | 100% |")
-      expect(table).toContain("| Sub Task 1 | done | 1/2 | 50% |")
+      expect(table).toContain("| Main Task | done | 2/2 | 100% |")
+      expect(table).toContain("| Sub Task 1 | done | 2/2 | 100% |")
 
-      // Verify childTask2 is in progress
+      // Verify childTask2 is completed
       const updatedChildTask2 = getTask(childResult2.task.id)
-      expect(updatedChildTask2.status).toBe("in_progress")
+      expect(updatedChildTask2.status).toBe("done")
 
-      // Verify overall statistics
+      // Verify overall statistics - all tasks completed
       expect(completeResult.progress_summary.total_tasks).toBe(5)
-      expect(completeResult.progress_summary.completed_tasks).toBe(3)
-      expect(completeResult.progress_summary.completion_percentage).toBe(60) // 3/5 = 60%
+      expect(completeResult.progress_summary.completed_tasks).toBe(5)
+      expect(completeResult.progress_summary.completion_percentage).toBe(100) // 5/5 = 100%
+    })
+
+    describe("hierarchy management functionality", () => {
+      it("should prevent completing parent task with incomplete subtasks", () => {
+        // Create parent with children
+        const parentResult = createTask({ name: "Parent Task" })
+        const child1Result = createTask({
+          name: "Child 1",
+          parent_id: parentResult.task.id,
+        })
+        createTask({
+          name: "Child 2",
+          parent_id: parentResult.task.id,
+        })
+
+        // Complete only one child
+        completeTask({ id: child1Result.task.id, resolution: "Done" })
+
+        // Attempting to complete parent should fail
+        expect(() => {
+          completeTask({ id: parentResult.task.id, resolution: "Parent done" })
+        }).toThrow(
+          "Cannot complete task 'Parent Task' because it has incomplete subtasks: 'Child 2'. Please complete all subtasks first.",
+        )
+      })
+
+      it("should allow completing parent task when all subtasks are complete", () => {
+        // Create parent with children
+        const parentResult = createTask({ name: "Parent Task" })
+        const child1Result = createTask({
+          name: "Child 1",
+          parent_id: parentResult.task.id,
+        })
+        const child2Result = createTask({
+          name: "Child 2",
+          parent_id: parentResult.task.id,
+        })
+
+        // Complete both children first
+        completeTask({ id: child1Result.task.id, resolution: "Done" })
+
+        // Completing second child should auto-complete the parent
+        completeTask({ id: child2Result.task.id, resolution: "Done" })
+
+        // Verify parent was auto-completed
+        const parentTask = getTask(parentResult.task.id)
+        expect(parentTask.status).toBe("done")
+        expect(parentTask.resolution).toBe(
+          "Auto-completed: All subtasks completed",
+        )
+      })
+
+      it("should handle multi-level hierarchy completion validation", () => {
+        // Create 3-level hierarchy: Main -> Sub -> Child
+        const mainResult = createTask({ name: "Main Task" })
+        const subResult = createTask({
+          name: "Sub Task",
+          parent_id: mainResult.task.id,
+        })
+        const childResult = createTask({
+          name: "Child Task",
+          parent_id: subResult.task.id,
+        })
+
+        // Try to complete main task (should fail - has incomplete descendants)
+        expect(() => {
+          completeTask({ id: mainResult.task.id, resolution: "Main done" })
+        }).toThrow(
+          "Cannot complete task 'Main Task' because it has incomplete subtasks: 'Sub Task'. Please complete all subtasks first.",
+        )
+
+        // Try to complete sub task (should fail - has incomplete child)
+        expect(() => {
+          completeTask({ id: subResult.task.id, resolution: "Sub done" })
+        }).toThrow(
+          "Cannot complete task 'Sub Task' because it has incomplete subtasks: 'Child Task'. Please complete all subtasks first.",
+        )
+
+        // Complete child task - should cascade up the hierarchy
+        completeTask({ id: childResult.task.id, resolution: "Child done" })
+
+        // Verify all levels were completed
+        const updatedChild = getTask(childResult.task.id)
+        const updatedSub = getTask(subResult.task.id)
+        const updatedMain = getTask(mainResult.task.id)
+
+        expect(updatedChild.status).toBe("done")
+        expect(updatedChild.resolution).toBe("Child done")
+
+        expect(updatedSub.status).toBe("done")
+        expect(updatedSub.resolution).toBe(
+          "Auto-completed: All subtasks completed",
+        )
+
+        expect(updatedMain.status).toBe("done")
+        expect(updatedMain.resolution).toBe(
+          "Auto-completed: All subtasks completed",
+        )
+      })
+
+      it("should handle partial completion in complex hierarchy", () => {
+        // Create complex hierarchy with mixed completion states
+        const rootResult = createTask({ name: "Root Task" })
+
+        const branch1Result = createTask({
+          name: "Branch 1",
+          parent_id: rootResult.task.id,
+        })
+        const branch2Result = createTask({
+          name: "Branch 2",
+          parent_id: rootResult.task.id,
+        })
+
+        const leaf1Result = createTask({
+          name: "Leaf 1",
+          parent_id: branch1Result.task.id,
+        })
+        const leaf2Result = createTask({
+          name: "Leaf 2",
+          parent_id: branch1Result.task.id,
+        })
+        const leaf3Result = createTask({
+          name: "Leaf 3",
+          parent_id: branch2Result.task.id,
+        })
+
+        // Complete all leaves of branch1
+        completeTask({ id: leaf1Result.task.id, resolution: "Done" })
+        completeTask({ id: leaf2Result.task.id, resolution: "Done" })
+
+        // Branch1 should be auto-completed, but root should not (branch2 incomplete)
+        const branch1Task = getTask(branch1Result.task.id)
+        const rootTask = getTask(rootResult.task.id)
+
+        expect(branch1Task.status).toBe("done")
+        expect(rootTask.status).toBe("todo") // Still incomplete
+
+        // Try to complete root (should fail)
+        expect(() => {
+          completeTask({ id: rootResult.task.id, resolution: "Root done" })
+        }).toThrow(
+          "Cannot complete task 'Root Task' because it has incomplete subtasks: 'Branch 2'. Please complete all subtasks first.",
+        )
+
+        // Complete remaining leaf - should cascade to root
+        completeTask({ id: leaf3Result.task.id, resolution: "Done" })
+
+        const finalRootTask = getTask(rootResult.task.id)
+        const finalBranch2Task = getTask(branch2Result.task.id)
+
+        expect(finalBranch2Task.status).toBe("done")
+        expect(finalRootTask.status).toBe("done")
+      })
+
+      it("should include auto-completed parents in progress summary", () => {
+        // Create hierarchy
+        const parentResult = createTask({ name: "Parent Task" })
+        const childResult = createTask({
+          name: "Child Task",
+          parent_id: parentResult.task.id,
+        })
+
+        // Complete child - should trigger parent auto-completion
+        const completeResult = completeTask({
+          id: childResult.task.id,
+          resolution: "Child completed",
+        })
+
+        // Verify progress summary includes both tasks as completed
+        expect(completeResult.progress_summary.total_tasks).toBe(2)
+        expect(completeResult.progress_summary.completed_tasks).toBe(2)
+        expect(completeResult.progress_summary.completion_percentage).toBe(100)
+
+        // Verify table shows parent as completed
+        expect(completeResult.progress_summary.table).toContain(
+          "| Parent Task | done | 1/1 | 100% |",
+        )
+      })
+
+      it("should provide informative error messages for subtask validation failures", () => {
+        // Create parent with multiple children
+        const parentResult = createTask({ name: "Project" })
+        const child1Result = createTask({
+          name: "Design Phase",
+          parent_id: parentResult.task.id,
+        })
+        const child2Result = createTask({
+          name: "Development Phase",
+          parent_id: parentResult.task.id,
+        })
+        createTask({
+          name: "Testing Phase",
+          parent_id: parentResult.task.id,
+        })
+
+        // Complete only first child
+        completeTask({ id: child1Result.task.id, resolution: "Design done" })
+
+        // Try to complete parent - should get clear error message
+        expect(() => {
+          completeTask({ id: parentResult.task.id, resolution: "Project done" })
+        }).toThrow(
+          "Cannot complete task 'Project' because it has incomplete subtasks: 'Development Phase', 'Testing Phase'. Please complete all subtasks first.",
+        )
+
+        // Complete second child
+        completeTask({
+          id: child2Result.task.id,
+          resolution: "Development done",
+        })
+
+        // Try again - should get different incomplete subtask in error
+        expect(() => {
+          completeTask({ id: parentResult.task.id, resolution: "Project done" })
+        }).toThrow(
+          "Cannot complete task 'Project' because it has incomplete subtasks: 'Testing Phase'. Please complete all subtasks first.",
+        )
+      })
     })
   })
 })

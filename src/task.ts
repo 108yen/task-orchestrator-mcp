@@ -1,5 +1,11 @@
 import { randomUUID } from "crypto"
-import type { ProgressSummary, Task, TaskProgressRow } from "./storage.js"
+import type {
+  HierarchySummary,
+  HierarchySummaryRow,
+  ProgressSummary,
+  Task,
+  TaskProgressRow,
+} from "./storage.js"
 import { readTasks, writeTasks } from "./storage.js"
 
 /**
@@ -237,13 +243,57 @@ export function deleteTask(id: string): { id: string } {
 }
 
 /**
+ * Find the deepest incomplete subtask recursively
+ * @param taskId Starting task ID
+ * @param tasks All tasks
+ * @param depth Current depth (for tracking)
+ * @returns The deepest incomplete task and the execution path
+ */
+function findDeepestIncompleteSubtask(
+  taskId: string,
+  tasks: Task[],
+  depth = 0,
+): null | { deepestTask: Task; executionPath: Task[] } {
+  const childTasks = tasks
+    .filter((task) => task.parent_id === taskId && task.status === "todo")
+    .sort((a, b) => a.order - b.order)
+
+  if (childTasks.length === 0) {
+    // No incomplete children, return null since we don't include the starting task
+    return null
+  }
+
+  // Recursively search for the deepest incomplete task in the first child
+  const firstChild = childTasks[0]
+  if (firstChild) {
+    const result = findDeepestIncompleteSubtask(firstChild.id, tasks, depth + 1)
+    if (result) {
+      // Include the first child in the execution path
+      return {
+        deepestTask: result.deepestTask,
+        executionPath: [firstChild, ...result.executionPath],
+      }
+    } else {
+      // First child is the deepest task
+      return {
+        deepestTask: firstChild,
+        executionPath: [firstChild],
+      }
+    }
+  }
+
+  return null
+}
+
+/**
  * Start a task (change status to 'in_progress')
  * @param id Task ID
- * @returns Updated task with optional subtask information
+ * @returns Updated task with optional subtask information and hierarchy summary
  */
 export function startTask(id: string): {
+  hierarchy_summary?: string
   message?: string
-  subtask?: Task
+  started_tasks: Task[]
   task: Task
 } {
   if (!id || typeof id !== "string") {
@@ -270,6 +320,7 @@ export function startTask(id: string): {
     throw new Error(`Task '${id}' is already in progress`)
   }
 
+  // Start the main task
   const updatedTask: Task = {
     ...task,
     status: "in_progress",
@@ -277,37 +328,49 @@ export function startTask(id: string): {
   }
 
   tasks[taskIndex] = updatedTask
+  const startedTasks: Task[] = [updatedTask]
 
-  // Find incomplete subtasks and start the first one
-  const incompleteSubtasks = tasks
-    .filter((t) => t.parent_id === id && t.status === "todo")
-    .sort((a, b) => a.order - b.order)
+  // Find the deepest incomplete subtask and start all tasks in the execution path
+  const deepestResult = findDeepestIncompleteSubtask(id, tasks)
+  let message: string
 
-  let startedSubtask: Task | undefined
-  let message: string | undefined
+  if (deepestResult) {
+    const { executionPath } = deepestResult
+    const now = new Date()
 
-  if (incompleteSubtasks.length > 0) {
-    const firstSubtask = incompleteSubtasks[0]
-    if (firstSubtask) {
-      const subtaskIndex = tasks.findIndex((t) => t.id === firstSubtask.id)
-      if (subtaskIndex !== -1) {
-        const updatedSubtask: Task = {
-          ...firstSubtask,
+    // Start all tasks in the execution path (excluding the main task which is already started)
+    for (const pathTask of executionPath) {
+      const pathTaskIndex = tasks.findIndex((t) => t.id === pathTask.id)
+      if (pathTaskIndex !== -1 && tasks[pathTaskIndex]?.status === "todo") {
+        const updatedPathTask: Task = {
+          ...pathTask,
           status: "in_progress",
-          updatedAt: new Date(),
+          updatedAt: now,
         }
-        tasks[subtaskIndex] = updatedSubtask
-        startedSubtask = updatedSubtask
-        message = `Task '${task.name}' started. First incomplete subtask '${updatedSubtask.name}' also started automatically.`
+        tasks[pathTaskIndex] = updatedPathTask
+        startedTasks.push(updatedPathTask)
       }
     }
+
+    const depth = executionPath.length
+    if (depth === 1) {
+      message = `Task '${task.name}' started. Direct subtask '${executionPath[0]?.name}' also started automatically.`
+    } else {
+      message = `Task '${task.name}' started. Auto-started ${depth} nested tasks down to deepest incomplete subtask '${executionPath[depth - 1]?.name}'.`
+    }
+  } else {
+    message = `Task '${task.name}' started. No incomplete subtasks found.`
   }
 
   writeTasks(tasks)
 
+  // Generate hierarchy summary
+  const hierarchySummary = generateHierarchySummary(tasks)
+
   return {
-    message: message || `Task '${task.name}' started.`,
-    subtask: startedSubtask,
+    hierarchy_summary: hierarchySummary.table,
+    message,
+    started_tasks: startedTasks,
     task: updatedTask,
   }
 }
@@ -420,6 +483,135 @@ function generateProgressSummary(tasks: Task[]): ProgressSummary {
 }
 
 /**
+ * Generate hierarchy summary rows recursively
+ * @param tasks All tasks
+ * @param parentId Parent task ID (undefined for root tasks)
+ * @param depth Current depth level
+ * @returns Array of hierarchy summary rows
+ */
+function generateHierarchySummaryRows(
+  tasks: Task[],
+  parentId: string | undefined = undefined,
+  depth = 0,
+): HierarchySummaryRow[] {
+  const childTasks = tasks
+    .filter((task) => task.parent_id === parentId)
+    .sort((a, b) => a.order - b.order)
+
+  const rows: HierarchySummaryRow[] = []
+
+  for (const task of childTasks) {
+    const indent = "  ".repeat(depth) // 2 spaces per depth level
+    rows.push({
+      depth,
+      indent,
+      name: task.name,
+      status: task.status,
+      task_id: task.id,
+    })
+
+    // Recursively add child tasks
+    const childRows = generateHierarchySummaryRows(tasks, task.id, depth + 1)
+    rows.push(...childRows)
+  }
+
+  return rows
+}
+
+/**
+ * Generate hierarchy summary table
+ * @param rows Hierarchy summary rows
+ * @returns Markdown table string
+ */
+function generateHierarchyMarkdownTable(rows: HierarchySummaryRow[]): string {
+  if (rows.length === 0) {
+    return "No tasks found."
+  }
+
+  const header = "| Task Structure | Status |"
+  const separator = "|----------------|--------|"
+
+  const tableRows = rows.map((row) => {
+    const taskDisplay = `${row.indent}${row.name}`
+    const statusDisplay =
+      row.status === "todo"
+        ? "📋 todo"
+        : row.status === "in_progress"
+          ? "⚡ in_progress"
+          : "✅ done"
+    return `| ${taskDisplay} | ${statusDisplay} |`
+  })
+
+  return [header, separator, ...tableRows].join("\n")
+}
+
+/**
+ * Generate complete hierarchy summary
+ * @param tasks All tasks
+ * @returns Complete hierarchy summary
+ */
+function generateHierarchySummary(tasks: Task[]): HierarchySummary {
+  const rows = generateHierarchySummaryRows(tasks)
+  const table = generateHierarchyMarkdownTable(rows)
+  const total_levels =
+    rows.length > 0 ? Math.max(...rows.map((row) => row.depth)) + 1 : 0
+
+  return {
+    table,
+    total_levels,
+  }
+}
+
+/**
+ * Automatically complete parent tasks if all their subtasks are completed
+ * @param tasks All tasks
+ * @param completedTask The task that was just completed
+ * @returns Array of parent tasks that were auto-completed
+ */
+function autoCompleteParentTasks(tasks: Task[], completedTask: Task): Task[] {
+  const autoCompletedParents: Task[] = []
+
+  if (!completedTask.parent_id) {
+    // No parent to check
+    return autoCompletedParents
+  }
+
+  const parent = tasks.find((t) => t.id === completedTask.parent_id)
+  if (!parent || parent.status === "done") {
+    // Parent doesn't exist or is already completed
+    return autoCompletedParents
+  }
+
+  // Check if all siblings (including the completed task) are done
+  const siblings = tasks.filter((t) => t.parent_id === completedTask.parent_id)
+  const allSiblingsComplete = siblings.every((t) => t.status === "done")
+
+  if (allSiblingsComplete) {
+    // Auto-complete the parent
+    const parentIndex = tasks.findIndex((t) => t.id === parent.id)
+    if (parentIndex !== -1) {
+      const updatedParent: Task = {
+        ...parent,
+        resolution: `Auto-completed: All subtasks completed`,
+        status: "done",
+        updatedAt: new Date(),
+      }
+      tasks[parentIndex] = updatedParent
+      autoCompletedParents.push(updatedParent)
+
+      // Recursively check if the parent's parent can also be completed
+      const grandparentCompletions = autoCompleteParentTasks(
+        tasks,
+        updatedParent,
+      )
+      autoCompletedParents.push(...grandparentCompletions)
+    }
+  }
+
+  return autoCompletedParents
+}
+
+/**
  * Complete a task and find the next task to execute
  * @param params Completion parameters
  * @returns Next task information with progress summary
@@ -459,6 +651,20 @@ export function completeTask(params: { id: string; resolution: string }): {
     throw new Error(`Task '${id}' is already completed`)
   }
 
+  // Check if the task has incomplete subtasks
+  const subtasks = tasks.filter((t) => t.parent_id === id)
+  if (subtasks.length > 0) {
+    const incompleteSubtasks = subtasks.filter((t) => t.status !== "done")
+    if (incompleteSubtasks.length > 0) {
+      const incompleteNames = incompleteSubtasks
+        .map((t) => `'${t.name}'`)
+        .join(", ")
+      throw new Error(
+        `Cannot complete task '${task.name}' because it has incomplete subtasks: ${incompleteNames}. Please complete all subtasks first.`,
+      )
+    }
+  }
+
   // Update task to completed
   const updatedTask: Task = {
     ...task,
@@ -468,6 +674,10 @@ export function completeTask(params: { id: string; resolution: string }): {
   }
 
   tasks[taskIndex] = updatedTask
+
+  // Auto-complete parent tasks if all their subtasks are complete
+  const autoCompletedParents = autoCompleteParentTasks(tasks, updatedTask)
+
   writeTasks(tasks)
 
   // Generate progress summary with updated tasks
@@ -476,17 +686,28 @@ export function completeTask(params: { id: string; resolution: string }): {
   // Find next task to execute
   const nextTask = findNextTask(tasks, updatedTask)
 
-  if (nextTask) {
-    return {
-      message: `Task '${task.name}' completed. Next task: '${nextTask.name}'`,
-      next_task_id: nextTask.id,
-      progress_summary,
+  let message: string
+  if (autoCompletedParents.length > 0) {
+    const parentNames = autoCompletedParents
+      .map((p: Task) => `'${p.name}'`)
+      .join(", ")
+    if (nextTask) {
+      message = `Task '${task.name}' completed. Auto-completed parent tasks: ${parentNames}. Next task: '${nextTask.name}'`
+    } else {
+      message = `Task '${task.name}' completed. Auto-completed parent tasks: ${parentNames}. No more tasks to execute.`
     }
   } else {
-    return {
-      message: `Task '${task.name}' completed. No more tasks to execute.`,
-      progress_summary,
+    if (nextTask) {
+      message = `Task '${task.name}' completed. Next task: '${nextTask.name}'`
+    } else {
+      message = `Task '${task.name}' completed. No more tasks to execute.`
     }
+  }
+
+  return {
+    message,
+    next_task_id: nextTask?.id,
+    progress_summary,
   }
 }
 

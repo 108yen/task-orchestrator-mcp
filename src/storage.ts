@@ -1,6 +1,25 @@
 import { existsSync, readFileSync, writeFileSync } from "fs"
 
 /**
+ * Hierarchy summary interface for task structure reporting
+ */
+export interface HierarchySummary {
+  table: string // マークダウン形式の階層テーブル文字列
+  total_levels: number // 階層の深さ
+}
+
+/**
+ * Hierarchy summary row interface for task structure display
+ */
+export interface HierarchySummaryRow {
+  depth: number // ネストレベル（0が最上位）
+  indent: string // 階層表示用のインデント文字列
+  name: string // タスク名
+  status: string // ステータス
+  task_id: string // タスクID
+}
+
+/**
  * Progress summary interface for task completion reporting
  */
 export interface ProgressSummary {
