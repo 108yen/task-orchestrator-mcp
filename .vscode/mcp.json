@@ -3,6 +3,7 @@
     "local": {
       "command": "node",
       "args": ["${workspaceFolder}"],
+      "env": { "FILE_PATH": "${workspaceFolder}/task.json" },
       "dev": {
         "watch": "dist/**/*.js",
         "debug": {

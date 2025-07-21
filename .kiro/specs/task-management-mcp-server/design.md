@@ -64,18 +64,28 @@ interface TaskProgressRow {
 
 | 機能           | ツール名       | 入力パラメータ                                                               | 出力                                                                            |
 | :------------- | :------------- | :--------------------------------------------------------------------------- | :------------------------------------------------------------------------------ |
-| **タスク作成** | `createTask`   | `{ name: string, description?: string, parent_id?: string, order?: number }` | `{ task: Task }`                                                                |
+| **タスク作成** | `createTask`   | `{ name: string, description?: string, parent_id?: string, order?: number }` | `{ task: Task, message?: string }`                                              |
 | **タスク取得** | `getTask`      | `{ id: string }`                                                             | `{ task: Task }`                                                                |
 | **タスク一覧** | `listTasks`    | `{ parent_id?: string }`                                                     | `{ tasks: Task[] }`                                                             |
 | **タスク更新** | `updateTask`   | `{ id: string, name?: string, description?: string, status?: string, ... }`  | `{ task: Task }`                                                                |
 | **タスク削除** | `deleteTask`   | `{ id: string }`                                                             | `{ id: string }`                                                                |
-| **タスク開始** | `startTask`    | `{ id: string }`                                                             | `{ task: Task }`                                                                |
+| **タスク開始** | `startTask`    | `{ id: string }`                                                             | `{ task: Task, subtask?: Task, message?: string }`                              |
 | **タスク完了** | `completeTask` | `{ id: string, resolution: string }`                                         | `{ next_task_id?: string, message: string, progress_summary: ProgressSummary }` |
 
 #### タスク作成時のorder処理ロジック
 
 - **order未指定時**: 同一parent_id内の兄弟タスクの最大order値+1を自動割り当て（兄弟がいない場合は1）
 - **order指定時**: 指定されたorder値が既存タスクと重複する場合、既存の同一parent_id内のタスクでorder値が指定値以上のものを1ずつ増加させて挿入処理を実行
+
+#### タスク作成時のサブタスク推奨メッセージ
+
+- **ルートタスク作成時**: parent_idが未指定（ルートタスク）の場合、作成されたタスクと合わせて、そのタスクを達成するためのサブタスクの作成を推奨するメッセージを返す
+
+#### タスク開始時のサブタスク自動開始ロジック
+
+- **親タスク開始時**: 指定されたタスクのステータスを'in_progress'に変更
+- **サブタスク自動開始**: そのタスクにサブタスクがある場合、完了していない最初のサブタスク（order順）のステータスも'in_progress'に変更
+- **レスポンス拡張**: 開始されたサブタスクがある場合、メインタスクとサブタスクの両方の情報、および自動開始されたことを示すメッセージを返す
 
 #### タスク完了時の進捗サマリー生成ロジック
 
