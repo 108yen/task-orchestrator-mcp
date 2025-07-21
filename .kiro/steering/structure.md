@@ -4,6 +4,7 @@
 
 ```
 ├── src/                    # Source code
+├── test/                   # Integration tests
 ├── bin/                    # Built executable files
 ├── dist/                   # Build output (generated)
 ├── @types/                 # Custom TypeScript declarations

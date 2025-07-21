@@ -22,7 +22,7 @@ The main tools provided by `task-orchestrator-mcp` are as follows:
 
 ## Usage
 
-`DB_PATH` is optional. (default: `task.json`)
+`FILE_PATH` is optional.
 
 ```json
 {
@@ -31,7 +31,7 @@ The main tools provided by `task-orchestrator-mcp` are as follows:
       "command": "npx",
       "args": ["-y", "task-orchestrator-mcp"],
       "env": {
-        "DB_PATH": "path/to/json_file.json"
+        "FILE_PATH": "path/to/json_file.json"
       }
     }
   }
