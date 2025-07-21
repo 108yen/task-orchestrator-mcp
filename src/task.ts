@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto"
-import type { Task } from "./storage.js"
+import type { ProgressSummary, Task, TaskProgressRow } from "./storage.js"
 import { readTasks, writeTasks } from "./storage.js"
 
 /**
@@ -273,13 +273,121 @@ export function startTask(id: string): Task {
 }
 
 /**
+ * Calculate overall progress statistics
+ * @param tasks All tasks
+ * @returns Overall progress statistics
+ */
+function calculateOverallProgress(tasks: Task[]): {
+  completed_tasks: number
+  completion_percentage: number
+  in_progress_tasks: number
+  todo_tasks: number
+  total_tasks: number
+} {
+  const total_tasks = tasks.length
+  const completed_tasks = tasks.filter((task) => task.status === "done").length
+  const in_progress_tasks = tasks.filter(
+    (task) => task.status === "in_progress",
+  ).length
+  const todo_tasks = tasks.filter((task) => task.status === "todo").length
+  const completion_percentage =
+    total_tasks > 0 ? Math.round((completed_tasks / total_tasks) * 100) : 0
+
+  return {
+    completed_tasks,
+    completion_percentage,
+    in_progress_tasks,
+    todo_tasks,
+    total_tasks,
+  }
+}
+
+/**
+ * Generate hierarchical progress table rows
+ * @param tasks All tasks
+ * @returns Array of progress rows for parent tasks
+ */
+function generateProgressRows(tasks: Task[]): TaskProgressRow[] {
+  const parentTasks = tasks.filter((task) =>
+    tasks.some((t) => t.parent_id === task.id),
+  )
+
+  return parentTasks.map((parentTask) => {
+    const subtasks = tasks.filter((task) => task.parent_id === parentTask.id)
+    const completed_subtasks = subtasks.filter(
+      (task) => task.status === "done",
+    ).length
+    const total_subtasks = subtasks.length
+    const progress_percentage =
+      total_subtasks > 0
+        ? Math.round((completed_subtasks / total_subtasks) * 100)
+        : 0
+
+    return {
+      completed_subtasks,
+      progress_percentage,
+      status: parentTask.status,
+      task_name: parentTask.name,
+      total_subtasks,
+    }
+  })
+}
+
+/**
+ * Generate markdown table from progress rows
+ * @param rows Progress rows
+ * @returns Markdown table string
+ */
+function generateMarkdownTable(rows: TaskProgressRow[]): string {
+  if (rows.length === 0) {
+    return "No hierarchical tasks found."
+  }
+
+  const header = "| Task Name | Status | Subtasks | Progress |"
+  const separator = "|-----------|--------|----------|----------|"
+
+  const tableRows = rows.map((row) => {
+    const statusDisplay =
+      row.status === "todo"
+        ? "todo"
+        : row.status === "in_progress"
+          ? "in_progress"
+          : "done"
+    return `| ${row.task_name} | ${statusDisplay} | ${row.completed_subtasks}/${row.total_subtasks} | ${row.progress_percentage}% |`
+  })
+
+  return [header, separator, ...tableRows].join("\n")
+}
+
+/**
+ * Generate complete progress summary
+ * @param tasks All tasks
+ * @returns Complete progress summary
+ */
+function generateProgressSummary(tasks: Task[]): ProgressSummary {
+  const overallProgress = calculateOverallProgress(tasks)
+  const progressRows = generateProgressRows(tasks)
+  const table = generateMarkdownTable(progressRows)
+
+  return {
+    completed_tasks: overallProgress.completed_tasks,
+    completion_percentage: overallProgress.completion_percentage,
+    in_progress_tasks: overallProgress.in_progress_tasks,
+    table,
+    todo_tasks: overallProgress.todo_tasks,
+    total_tasks: overallProgress.total_tasks,
+  }
+}
+
+/**
  * Complete a task and find the next task to execute
  * @param params Completion parameters
- * @returns Next task information
+ * @returns Next task information with progress summary
  */
 export function completeTask(params: { id: string; resolution: string }): {
   message: string
   next_task_id?: string
+  progress_summary: ProgressSummary
 } {
   const { id, resolution } = params
 
@@ -322,6 +430,9 @@ export function completeTask(params: { id: string; resolution: string }): {
   tasks[taskIndex] = updatedTask
   writeTasks(tasks)
 
+  // Generate progress summary with updated tasks
+  const progress_summary = generateProgressSummary(tasks)
+
   // Find next task to execute
   const nextTask = findNextTask(tasks, updatedTask)
 
@@ -329,10 +440,12 @@ export function completeTask(params: { id: string; resolution: string }): {
     return {
       message: `Task '${task.name}' completed. Next task: '${nextTask.name}'`,
       next_task_id: nextTask.id,
+      progress_summary,
     }
   } else {
     return {
       message: `Task '${task.name}' completed. No more tasks to execute.`,
+      progress_summary,
     }
   }
 }

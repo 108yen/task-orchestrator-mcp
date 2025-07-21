@@ -1,6 +1,18 @@
 import { existsSync, readFileSync, writeFileSync } from "fs"
 
 /**
+ * Progress summary interface for task completion reporting
+ */
+export interface ProgressSummary {
+  completed_tasks: number // 完了済みタスク数
+  completion_percentage: number // 完了率（0-100）
+  in_progress_tasks: number // 進行中タスク数
+  table: string // マークダウン形式のテーブル文字列
+  todo_tasks: number // 未着手タスク数
+  total_tasks: number // 全タスク数
+}
+
+/**
  * Task interface representing a task in the system
  */
 export interface Task {
@@ -13,6 +25,17 @@ export interface Task {
   resolution?: string // タスク完了時の状態や結果（未完了時はundefined）
   status: string // タスクの進捗状況（'todo', 'in_progress', 'done'）
   updatedAt: Date // タスクの最終更新日時
+}
+
+/**
+ * Task progress row interface for hierarchical progress display
+ */
+export interface TaskProgressRow {
+  completed_subtasks: number // 完了済みサブタスク数
+  progress_percentage: number // 進捗率（0-100）
+  status: string // ステータス
+  task_name: string // タスク名
+  total_subtasks: number // 総サブタスク数
 }
 
 // In-memory storage for when FILE_PATH is not set

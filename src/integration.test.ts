@@ -584,6 +584,14 @@ describe("MCP Task Management Integration Tests", () => {
         expect(response).toEqual({
           message: expect.any(String),
           next_task_id: undefined,
+          progress_summary: expect.objectContaining({
+            completed_tasks: expect.any(Number),
+            completion_percentage: expect.any(Number),
+            in_progress_tasks: expect.any(Number),
+            table: expect.any(String),
+            todo_tasks: expect.any(Number),
+            total_tasks: expect.any(Number),
+          }),
         })
 
         // Verify task status was updated
@@ -647,6 +655,14 @@ describe("MCP Task Management Integration Tests", () => {
         expect(response).toEqual({
           message: expect.any(String),
           next_task_id: child2Task.id,
+          progress_summary: expect.objectContaining({
+            completed_tasks: expect.any(Number),
+            completion_percentage: expect.any(Number),
+            in_progress_tasks: expect.any(Number),
+            table: expect.any(String),
+            todo_tasks: expect.any(Number),
+            total_tasks: expect.any(Number),
+          }),
         })
       })
     })

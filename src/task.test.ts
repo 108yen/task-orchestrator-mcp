@@ -388,5 +388,108 @@ describe("Task Management", () => {
       expect(result.next_task_id).toBeUndefined()
       expect(result.message).toContain("No more tasks to execute")
     })
+
+    it("should include progress summary in the response", () => {
+      const task = createTask({ name: "Test Task" })
+      const result = completeTask({ id: task.id, resolution: "Done" })
+
+      expect(result.progress_summary).toBeDefined()
+      expect(result.progress_summary.total_tasks).toBe(1)
+      expect(result.progress_summary.completed_tasks).toBe(1)
+      expect(result.progress_summary.in_progress_tasks).toBe(0)
+      expect(result.progress_summary.todo_tasks).toBe(0)
+      expect(result.progress_summary.completion_percentage).toBe(100)
+      expect(result.progress_summary.table).toBe("No hierarchical tasks found.")
+    })
+
+    it("should calculate correct progress statistics for multiple tasks", () => {
+      // Create a mix of tasks with different statuses
+      const task1 = createTask({ name: "Task 1" })
+      const task2 = createTask({ name: "Task 2" })
+      createTask({ name: "Task 3" }) // Create a third task without storing the reference
+
+      // Set task2 to in_progress
+      startTask(task2.id)
+
+      // Complete task1
+      const result = completeTask({ id: task1.id, resolution: "Done" })
+
+      // Verify progress summary statistics
+      expect(result.progress_summary.total_tasks).toBe(3)
+      expect(result.progress_summary.completed_tasks).toBe(1)
+      expect(result.progress_summary.in_progress_tasks).toBe(1)
+      expect(result.progress_summary.todo_tasks).toBe(1)
+      expect(result.progress_summary.completion_percentage).toBe(33) // 1/3 = 33%
+    })
+
+    it("should generate correct hierarchical progress table", () => {
+      // Create parent task with children
+      const parentTask = createTask({ name: "Parent Task" })
+      const child1 = createTask({ name: "Child 1", parent_id: parentTask.id })
+      createTask({ name: "Child 2", parent_id: parentTask.id }) // Create second child without storing reference
+
+      // Complete one child task
+      completeTask({ id: child1.id, resolution: "Done" })
+
+      // Complete parent and check progress summary
+      const result = completeTask({ id: parentTask.id, resolution: "Done" })
+
+      // Verify table format and content
+      expect(result.progress_summary.table).toContain(
+        "| Task Name | Status | Subtasks | Progress |",
+      )
+      expect(result.progress_summary.table).toContain(
+        "| Parent Task | done | 1/2 | 50% |",
+      )
+
+      // Verify overall statistics
+      expect(result.progress_summary.total_tasks).toBe(3)
+      expect(result.progress_summary.completed_tasks).toBe(2)
+      expect(result.progress_summary.completion_percentage).toBe(67) // 2/3 = ~67%
+    })
+
+    it("should handle complex hierarchical task structures", () => {
+      // Create a more complex hierarchy
+      const mainTask = createTask({ name: "Main Task" })
+
+      const subTask1 = createTask({
+        name: "Sub Task 1",
+        parent_id: mainTask.id,
+      })
+      const subTask2 = createTask({
+        name: "Sub Task 2",
+        parent_id: mainTask.id,
+      })
+
+      const childTask1 = createTask({ name: "Child 1", parent_id: subTask1.id })
+      const childTask2 = createTask({
+        name: "Child 2",
+        parent_id: subTask1.id,
+      })
+
+      // Complete some tasks
+      completeTask({ id: childTask1.id, resolution: "Done" })
+      completeTask({ id: subTask2.id, resolution: "Done" })
+
+      // Start childTask2 to test mixed status
+      startTask(childTask2.id)
+
+      // Complete subTask1 and check progress
+      const result = completeTask({ id: subTask1.id, resolution: "Done" })
+
+      // Verify table includes both parent tasks with correct progress
+      const table = result.progress_summary.table
+      expect(table).toContain("| Main Task | todo | 2/2 | 100% |")
+      expect(table).toContain("| Sub Task 1 | done | 1/2 | 50% |")
+
+      // Verify childTask2 is in progress
+      const updatedChildTask2 = getTask(childTask2.id)
+      expect(updatedChildTask2.status).toBe("in_progress")
+
+      // Verify overall statistics
+      expect(result.progress_summary.total_tasks).toBe(5)
+      expect(result.progress_summary.completed_tasks).toBe(3)
+      expect(result.progress_summary.completion_percentage).toBe(60) // 3/5 = 60%
+    })
   })
 })
