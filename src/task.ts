@@ -5,14 +5,14 @@ import { readTasks, writeTasks } from "./storage.js"
 /**
  * Create a new task
  * @param params Task creation parameters
- * @returns Created task
+ * @returns Created task with optional recommendation message
  */
 export function createTask(params: {
   description?: string
   name: string
   order?: number
   parent_id?: string
-}): Task {
+}): { message?: string; task: Task } {
   const { description = "", name, parent_id } = params
   let { order } = params
 
@@ -63,7 +63,13 @@ export function createTask(params: {
   tasks.push(task)
   writeTasks(tasks)
 
-  return task
+  // Generate recommendation message for root tasks
+  let message: string | undefined
+  if (!parent_id) {
+    message = `Root task '${task.name}' created successfully. Consider breaking this down into smaller subtasks using createTask with parent_id='${task.id}' to better organize your workflow and track progress.`
+  }
+
+  return { message, task }
 }
 
 /**
@@ -233,9 +239,13 @@ export function deleteTask(id: string): { id: string } {
 /**
  * Start a task (change status to 'in_progress')
  * @param id Task ID
- * @returns Updated task
+ * @returns Updated task with optional subtask information
  */
-export function startTask(id: string): Task {
+export function startTask(id: string): {
+  message?: string
+  subtask?: Task
+  task: Task
+} {
   if (!id || typeof id !== "string") {
     throw new Error("Task ID is required and must be a string")
   }
@@ -267,9 +277,39 @@ export function startTask(id: string): Task {
   }
 
   tasks[taskIndex] = updatedTask
+
+  // Find incomplete subtasks and start the first one
+  const incompleteSubtasks = tasks
+    .filter((t) => t.parent_id === id && t.status === "todo")
+    .sort((a, b) => a.order - b.order)
+
+  let startedSubtask: Task | undefined
+  let message: string | undefined
+
+  if (incompleteSubtasks.length > 0) {
+    const firstSubtask = incompleteSubtasks[0]
+    if (firstSubtask) {
+      const subtaskIndex = tasks.findIndex((t) => t.id === firstSubtask.id)
+      if (subtaskIndex !== -1) {
+        const updatedSubtask: Task = {
+          ...firstSubtask,
+          status: "in_progress",
+          updatedAt: new Date(),
+        }
+        tasks[subtaskIndex] = updatedSubtask
+        startedSubtask = updatedSubtask
+        message = `Task '${task.name}' started. First incomplete subtask '${updatedSubtask.name}' also started automatically.`
+      }
+    }
+  }
+
   writeTasks(tasks)
 
-  return updatedTask
+  return {
+    message: message || `Task '${task.name}' started.`,
+    subtask: startedSubtask,
+    task: updatedTask,
+  }
 }
 
 /**

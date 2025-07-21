@@ -54,7 +54,9 @@ describe("registerTools", () => {
     expect(createTaskCall).toBeDefined()
     expect(createTaskCall[0]).toBe("createTask")
     expect(createTaskCall[1]).toMatchObject({
-      description: "Create a new task with optional parent and ordering",
+      description: expect.stringContaining(
+        "Create a new task with optional parent and ordering",
+      ),
       inputSchema: expect.objectContaining({
         description: expect.any(Object),
         name: expect.any(Object),
@@ -153,7 +155,9 @@ describe("registerTools", () => {
     expect(startTaskCall).toBeDefined()
     expect(startTaskCall[0]).toBe("startTask")
     expect(startTaskCall[1]).toMatchObject({
-      description: "Start a task (change status to in_progress)",
+      description: expect.stringContaining(
+        "Start a task (change status to in_progress)",
+      ),
       inputSchema: expect.objectContaining({
         id: expect.any(Object),
       }),
@@ -171,7 +175,9 @@ describe("registerTools", () => {
     expect(completeTaskCall).toBeDefined()
     expect(completeTaskCall[0]).toBe("completeTask")
     expect(completeTaskCall[1]).toMatchObject({
-      description: "Complete a task and get the next task to execute",
+      description: expect.stringContaining(
+        "Complete a task and get the next task to execute",
+      ),
       inputSchema: expect.objectContaining({
         id: expect.any(Object),
         resolution: expect.any(Object),

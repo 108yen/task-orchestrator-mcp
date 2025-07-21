@@ -44,11 +44,11 @@ export function registerTools(): void {
     },
     (args) => {
       try {
-        const task = createTask(args)
+        const result = createTask(args)
         return {
           content: [
             {
-              text: JSON.stringify({ task }, null, 2),
+              text: JSON.stringify(result, null, 2),
               type: "text",
             },
           ],
@@ -291,11 +291,11 @@ export function registerTools(): void {
     },
     (args) => {
       try {
-        const task = startTask(args.id)
+        const result = startTask(args.id)
         return {
           content: [
             {
-              text: JSON.stringify({ task }, null, 2),
+              text: JSON.stringify(result, null, 2),
               type: "text",
             },
           ],

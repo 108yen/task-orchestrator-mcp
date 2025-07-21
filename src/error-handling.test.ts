@@ -152,7 +152,7 @@ describe("Error Handling Tests", () => {
       })
 
       it("should throw error for invalid status", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() => updateTask({ id: task.id, status: "invalid" })).toThrow(
           "Invalid status 'invalid'. Must be one of: todo, in_progress, done",
         )
@@ -162,7 +162,7 @@ describe("Error Handling Tests", () => {
       })
 
       it("should throw error for empty name", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() => updateTask({ id: task.id, name: "" })).toThrow(
           "Task name must be a non-empty string",
         )
@@ -172,14 +172,14 @@ describe("Error Handling Tests", () => {
       })
 
       it("should throw error for non-string name", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() => updateTask({ id: task.id, name: 123 as any })).toThrow(
           "Task name must be a non-empty string",
         )
       })
 
       it("should throw error for negative order", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() => updateTask({ id: task.id, order: -1 })).toThrow(
           "Order must be a non-negative number",
         )
@@ -189,21 +189,21 @@ describe("Error Handling Tests", () => {
       })
 
       it("should throw error for non-number order", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() => updateTask({ id: task.id, order: "5" as any })).toThrow(
           "Order must be a non-negative number",
         )
       })
 
       it("should throw error for circular parent reference", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() => updateTask({ id: task.id, parent_id: task.id })).toThrow(
           "Task cannot be its own parent",
         )
       })
 
       it("should throw error for non-existent parent_id", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() =>
           updateTask({ id: task.id, parent_id: "non-existent" }),
         ).toThrow("Parent task with id 'non-existent' does not exist")
@@ -246,14 +246,14 @@ describe("Error Handling Tests", () => {
       })
 
       it("should throw error for missing resolution", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() =>
           completeTask({ id: task.id, resolution: undefined as any }),
         ).toThrow("Resolution is required and must be a non-empty string")
       })
 
       it("should throw error for empty resolution", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() => completeTask({ id: task.id, resolution: "" })).toThrow(
           "Resolution is required and must be a non-empty string",
         )
@@ -263,7 +263,7 @@ describe("Error Handling Tests", () => {
       })
 
       it("should throw error for non-string resolution", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() =>
           completeTask({ id: task.id, resolution: 123 as any }),
         ).toThrow("Resolution is required and must be a non-empty string")
@@ -306,7 +306,7 @@ describe("Error Handling Tests", () => {
 
     describe("Task state consistency errors", () => {
       it("should throw error when starting already completed task", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         updateTask({ id: task.id, status: "done" })
 
         expect(() => startTask(task.id)).toThrow(
@@ -315,7 +315,7 @@ describe("Error Handling Tests", () => {
       })
 
       it("should throw error when starting already in-progress task", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         startTask(task.id)
 
         expect(() => startTask(task.id)).toThrow(
@@ -324,7 +324,7 @@ describe("Error Handling Tests", () => {
       })
 
       it("should throw error when completing already completed task", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         completeTask({ id: task.id, resolution: "First completion" })
 
         expect(() =>
@@ -333,7 +333,7 @@ describe("Error Handling Tests", () => {
       })
 
       it("should throw error when deleting task with children", () => {
-        const parentTask = createTask({ name: "Parent" })
+        const { task: parentTask } = createTask({ name: "Parent" })
         createTask({ name: "Child", parent_id: parentTask.id })
 
         expect(() => deleteTask(parentTask.id)).toThrow(
@@ -350,14 +350,14 @@ describe("Error Handling Tests", () => {
       })
 
       it("should prevent updating task to have non-existent parent", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() =>
           updateTask({ id: task.id, parent_id: "fake-parent-id" }),
         ).toThrow("Parent task with id 'fake-parent-id' does not exist")
       })
 
       it("should prevent self-referential parent relationship", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() => updateTask({ id: task.id, parent_id: task.id })).toThrow(
           "Task cannot be its own parent",
         )
@@ -369,7 +369,7 @@ describe("Error Handling Tests", () => {
     describe("Order field boundaries", () => {
       it("should accept order value of 0", () => {
         expect(() => createTask({ name: "Test", order: 0 })).not.toThrow()
-        const task = createTask({ name: "Test2" })
+        const { task } = createTask({ name: "Test2" })
         expect(() => updateTask({ id: task.id, order: 0 })).not.toThrow()
       })
 
@@ -377,7 +377,7 @@ describe("Error Handling Tests", () => {
         expect(() =>
           createTask({ name: "Test", order: Number.MAX_SAFE_INTEGER }),
         ).not.toThrow()
-        const task = createTask({ name: "Test2" })
+        const { task } = createTask({ name: "Test2" })
         expect(() =>
           updateTask({ id: task.id, order: Number.MAX_SAFE_INTEGER }),
         ).not.toThrow()
@@ -385,14 +385,14 @@ describe("Error Handling Tests", () => {
 
       it("should reject negative order values", () => {
         expect(() => createTask({ name: "Test", order: -1 })).not.toThrow() // createTask doesn't validate order
-        const task = createTask({ name: "Test2" })
+        const { task } = createTask({ name: "Test2" })
         expect(() => updateTask({ id: task.id, order: -1 })).toThrow(
           "Order must be a non-negative number",
         )
       })
 
       it("should reject non-finite order values", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() =>
           updateTask({ id: task.id, order: Number.POSITIVE_INFINITY }),
         ).toThrow("Order must be a non-negative number")
@@ -409,7 +409,7 @@ describe("Error Handling Tests", () => {
       it("should handle very long task names", () => {
         const longName = "a".repeat(10000)
         expect(() => createTask({ name: longName })).not.toThrow()
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() => updateTask({ id: task.id, name: longName })).not.toThrow()
       })
 
@@ -418,14 +418,14 @@ describe("Error Handling Tests", () => {
         expect(() =>
           createTask({ description: longDescription, name: "Test" }),
         ).not.toThrow()
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() =>
           updateTask({ description: longDescription, id: task.id }),
         ).not.toThrow()
       })
 
       it("should handle very long resolutions", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         const longResolution = "a".repeat(10000)
         expect(() =>
           completeTask({ id: task.id, resolution: longResolution }),
@@ -439,7 +439,7 @@ describe("Error Handling Tests", () => {
           createTask({ description: specialChars, name: "Test" }),
         ).not.toThrow()
 
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() =>
           completeTask({ id: task.id, resolution: specialChars }),
         ).not.toThrow()
@@ -452,7 +452,7 @@ describe("Error Handling Tests", () => {
           createTask({ description: unicode, name: "Test" }),
         ).not.toThrow()
 
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() =>
           completeTask({ id: task.id, resolution: unicode }),
         ).not.toThrow()
@@ -491,7 +491,7 @@ describe("Error Handling Tests", () => {
   describe("Edge Cases", () => {
     describe("Whitespace handling", () => {
       it("should trim whitespace from task names and descriptions", () => {
-        const task = createTask({
+        const { task } = createTask({
           description: "  Test Description  ",
           name: "  Test Task  ",
         })
@@ -508,7 +508,7 @@ describe("Error Handling Tests", () => {
       })
 
       it("should trim whitespace from resolution", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         completeTask({
           id: task.id,
           resolution: "  Completed successfully  ",
@@ -530,7 +530,7 @@ describe("Error Handling Tests", () => {
           }),
         ).not.toThrow()
 
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() =>
           updateTask({
             description: undefined,
@@ -545,12 +545,12 @@ describe("Error Handling Tests", () => {
       })
 
       it("should convert undefined description to empty string", () => {
-        const task = createTask({ description: undefined, name: "Test" })
+        const { task } = createTask({ description: undefined, name: "Test" })
         expect(task.description).toBe("")
       })
 
       it("should handle null values in update operations", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         expect(() =>
           updateTask({
             description: null as any,
@@ -567,7 +567,7 @@ describe("Error Handling Tests", () => {
 
     describe("Status transition edge cases", () => {
       it("should allow updating from any status to any valid status", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
 
         // todo -> in_progress
         expect(() =>
@@ -585,7 +585,7 @@ describe("Error Handling Tests", () => {
       })
 
       it("should prevent startTask on completed tasks but allow updateTask", () => {
-        const task = createTask({ name: "Test" })
+        const { task } = createTask({ name: "Test" })
         updateTask({ id: task.id, status: "done" })
 
         expect(() => startTask(task.id)).toThrow("is already completed")
@@ -597,8 +597,11 @@ describe("Error Handling Tests", () => {
 
     describe("Parent-child relationship edge cases", () => {
       it("should allow removing parent by setting parent_id to empty string", () => {
-        const parent = createTask({ name: "Parent" })
-        const child = createTask({ name: "Child", parent_id: parent.id })
+        const { task: parent } = createTask({ name: "Parent" })
+        const { task: child } = createTask({
+          name: "Child",
+          parent_id: parent.id,
+        })
 
         expect(() => updateTask({ id: child.id, parent_id: "" })).not.toThrow()
 
@@ -607,9 +610,12 @@ describe("Error Handling Tests", () => {
       })
 
       it("should allow changing parent to another valid parent", () => {
-        const parent1 = createTask({ name: "Parent 1" })
-        const parent2 = createTask({ name: "Parent 2" })
-        const child = createTask({ name: "Child", parent_id: parent1.id })
+        const { task: parent1 } = createTask({ name: "Parent 1" })
+        const { task: parent2 } = createTask({ name: "Parent 2" })
+        const { task: child } = createTask({
+          name: "Child",
+          parent_id: parent1.id,
+        })
 
         expect(() =>
           updateTask({ id: child.id, parent_id: parent2.id }),
@@ -620,9 +626,15 @@ describe("Error Handling Tests", () => {
       })
 
       it("should allow deleting parent after removing all children", () => {
-        const parent = createTask({ name: "Parent" })
-        const child1 = createTask({ name: "Child 1", parent_id: parent.id })
-        const child2 = createTask({ name: "Child 2", parent_id: parent.id })
+        const { task: parent } = createTask({ name: "Parent" })
+        const { task: child1 } = createTask({
+          name: "Child 1",
+          parent_id: parent.id,
+        })
+        const { task: child2 } = createTask({
+          name: "Child 2",
+          parent_id: parent.id,
+        })
 
         // Should fail initially
         expect(() => deleteTask(parent.id)).toThrow("has child tasks")

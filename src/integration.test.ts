@@ -87,6 +87,8 @@ describe("MCP Task Management Integration Tests", () => {
         })
 
         const response = parseMCPResponse(result)
+        expect(response).toHaveProperty("task")
+        expect(response).toHaveProperty("message")
         expect(response.task).toEqual({
           createdAt: expect.stringMatching(
             /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
@@ -130,6 +132,8 @@ describe("MCP Task Management Integration Tests", () => {
         })
 
         const response = parseMCPResponse(result)
+        expect(response).toHaveProperty("task")
+        // For child tasks, there should not be a message
         expect(response.task).toEqual({
           createdAt: expect.stringMatching(
             /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
