@@ -1,7 +1,7 @@
 # task-orchestrator-mcp
 
 [![NPM Version](https://img.shields.io/npm/v/task-orchestrator-mcp)](https://www.npmjs.com/package/task-orchestrator-mcp)
-[![codecov](https://codecov.io/gh/108yen/task-orchestrator-mcp/graph/badge.svg?token=7C4VJLGXX9)](https://codecov.io/gh/108yen/task-orchestrator-mcp)
+[![codecov](https://codecov.io/github/108yen/task-orchestrator-mcp/graph/badge.svg?token=R4QL858MGW)](https://codecov.io/github/108yen/task-orchestrator-mcp)
 [![MIT License](https://img.shields.io/github/license/108yen/task-orchestrator-mcp)](https://img.shields.io/github/license/108yen/task-orchestrator-mcp)
 
 `task-orchestrator-mcp` is an MCP (Model Context Protocol) server that provides a set of tools for managing tasks. It enables agents to perform CRUD operations on tasks and manage their progress.

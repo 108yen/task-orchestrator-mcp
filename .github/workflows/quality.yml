@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - v*
 
 permissions: {}
 
@@ -117,17 +118,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Run tests
-        run: pnpm test
-
-      # Uncomment the following lines if you want to run tests with coverage and upload to Codecov
-      # - name: Run test
-      #   run: pnpm test:coverage
-
-      # - name: Upload coverage reports to Codecov
-      #   uses: codecov/codecov-action@v5
-      #   with:
-      #     token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: 108yen/task-orchestrator-mcp
 
   build:
     name: Build
