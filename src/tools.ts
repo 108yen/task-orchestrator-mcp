@@ -18,7 +18,14 @@ export function registerTools(): void {
   server.registerTool(
     "createTask",
     {
-      description: "Create a new task with optional parent and ordering",
+      description:
+        "Create a new task with optional parent and ordering.\n\n" +
+        "This tool initiates a new workflow for handling user requests. The workflow is as follows:\n" +
+        "1. Create a task with the provided name and optional description. It is structured as a root task and subtasks to achieve it.\n" +
+        "2. After task creation, you MUST call the `startTask` tool to begin processing the task.\n" +
+        "3. When the task is completed, call the `completeTask` tool with the task ID and resolution details.\n" +
+        "4. If the following task is assigned, execute it by calling the `startTask` tool again.\n" +
+        "5. Repeat this cycle until all tasks are completed.",
       inputSchema: {
         description: z
           .string()
@@ -274,7 +281,10 @@ export function registerTools(): void {
   server.registerTool(
     "startTask",
     {
-      description: "Start a task (change status to in_progress)",
+      description:
+        "Start a task (change status to in_progress)\n\n" +
+        "1. Run this tool to start the task. \n" +
+        "2. When the task is complete, call the `completeTask` tool to complete the task.",
       inputSchema: {
         id: z.string().describe("Task ID"),
       },
@@ -318,7 +328,9 @@ export function registerTools(): void {
   server.registerTool(
     "completeTask",
     {
-      description: "Complete a task and get the next task to execute",
+      description:
+        "Complete a task and get the next task to execute.\n" +
+        "To start the next task, execute `startTask`.",
       inputSchema: {
         id: z.string().describe("Task ID"),
         resolution: z.string().describe("Task completion resolution/details"),
