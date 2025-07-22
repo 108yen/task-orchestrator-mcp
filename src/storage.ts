@@ -15,7 +15,9 @@ export interface HierarchySummaryRow {
   depth: number // ネストレベル（0が最上位）
   indent: string // 階層表示用のインデント文字列
   name: string // タスク名
+  parent_name?: string // 親タスクの名前（トップレベルタスクの場合はundefined）
   status: string // ステータス
+  status_changed: boolean // その操作でステータスが変更されたかどうか
   task_id: string // タスクID
 }
 
@@ -51,8 +53,10 @@ export interface Task {
  */
 export interface TaskProgressRow {
   completed_subtasks: number // 完了済みサブタスク数
+  parent_name?: string // 親タスクの名前（トップレベルタスクの場合はundefined）
   progress_percentage: number // 進捗率（0-100）
   status: string // ステータス
+  status_changed: boolean // その操作でステータスが変更されたかどうか
   task_name: string // タスク名
   total_subtasks: number // 総サブタスク数
 }

@@ -829,11 +829,12 @@ describe("Task Management", () => {
 
       // Verify table format and content - since both children are done, parent shows 100%
       expect(completeResult.progress_summary.table).toContain(
-        "| Task Name | Status | Subtasks | Progress |",
+        "| Task Name | Status | Parent Task | Status Changed | Subtasks | Progress |",
       )
       expect(completeResult.progress_summary.table).toContain(
-        "| Parent Task | done | 2/2 | 100% |",
+        "| Parent Task | done | - | ✓ |",
       )
+      expect(completeResult.progress_summary.table).toContain("| 2/2 | 100% |")
 
       // Verify overall statistics
       expect(completeResult.progress_summary.total_tasks).toBe(3)
@@ -882,8 +883,9 @@ describe("Task Management", () => {
 
       // Verify table includes both parent tasks with correct progress
       const table = completeResult.progress_summary.table
-      expect(table).toContain("| Main Task | done | 2/2 | 100% |")
-      expect(table).toContain("| Sub Task 1 | done | 2/2 | 100% |")
+      expect(table).toContain("| Main Task | done | - | ✓ |")
+      expect(table).toContain("| Sub Task 1 | done | Main Task | ✓ |")
+      expect(table).toContain("| 2/2 | 100% |")
 
       // Verify childTask2 is completed
       const updatedChildTask2 = getTask(childResult2.task.id)
@@ -1068,7 +1070,10 @@ describe("Task Management", () => {
 
         // Verify table shows parent as completed
         expect(completeResult.progress_summary.table).toContain(
-          "| Parent Task | done | 1/1 | 100% |",
+          "| Parent Task | done | - | ✓ |",
+        )
+        expect(completeResult.progress_summary.table).toContain(
+          "| 1/1 | 100% |",
         )
       })
 
@@ -1414,6 +1419,102 @@ describe("Task Management", () => {
       expect(tasks.find((t: Task) => t.id === leaf2.task.id)?.status).toBe(
         "in_progress",
       )
+    })
+  })
+
+  describe("Table Display Extensions", () => {
+    it("should include parent task name and status changed in progress table", () => {
+      // Create parent and child tasks
+      const parentResult = createTask({ name: "Parent Task" })
+      const childResult = createTask({
+        name: "Child Task",
+        parentId: parentResult.task.id,
+      })
+      startTask(parentResult.task.id) // This will start both parent and child
+
+      // Complete child task
+      const completeResult = completeTask({
+        id: childResult.task.id,
+        resolution: "Completed",
+      })
+
+      // Verify table includes parent name and status changed fields
+      const table = completeResult.progress_summary.table
+      expect(table).toContain(
+        "| Task Name | Status | Parent Task | Status Changed | Subtasks | Progress |",
+      )
+      expect(table).toContain("| Parent Task | done | - | ✓ |")
+      expect(table).toMatch(/\| Parent Task \| done \| - \| ✓ \|/)
+    })
+
+    it("should include parent task name and status changed in hierarchy summary", () => {
+      // Create hierarchical tasks
+      const rootResult = createTask({ name: "Root Task" })
+      const childResult = createTask({
+        name: "Child Task",
+        parentId: rootResult.task.id,
+      })
+      createTask({
+        name: "Grandchild Task",
+        parentId: childResult.task.id,
+      })
+
+      // Start the root task to get hierarchy summary
+      const startResult = startTask(rootResult.task.id)
+
+      // Verify hierarchy summary includes parent names and status changed
+      const hierarchy = startResult.hierarchy_summary
+      expect(hierarchy).toContain(
+        "| Task Structure | Parent Task | Status | Status Changed |",
+      )
+
+      // Check that parent names are correctly displayed
+      // Root should have no parent (-)
+      expect(hierarchy).toMatch(/Root Task.*\| - \|.*in_progress/)
+
+      // Child should have Root as parent
+      expect(hierarchy).toMatch(/Child Task.*\| Root Task \|.*in_progress/)
+
+      // Grandchild should have Child as parent
+      expect(hierarchy).toMatch(
+        /Grandchild Task.*\| Child Task \|.*in_progress/,
+      )
+
+      // All entries should have status changed indicators
+      expect(hierarchy).toMatch(/✓/)
+      expect(hierarchy).toMatch(/-/)
+    })
+
+    it("should handle complex hierarchy with correct parent names", () => {
+      // Create complex hierarchy: Main -> (Branch1, Branch2) -> (Leaf1, Leaf2)
+      const mainResult = createTask({ name: "Main Project" })
+      const branch1Result = createTask({
+        name: "Branch 1",
+        parentId: mainResult.task.id,
+      })
+      const branch2Result = createTask({
+        name: "Branch 2",
+        parentId: mainResult.task.id,
+      })
+      createTask({
+        name: "Leaf 1",
+        parentId: branch1Result.task.id,
+      })
+      createTask({
+        name: "Leaf 2",
+        parentId: branch2Result.task.id,
+      })
+
+      // Start from main task
+      const startResult = startTask(mainResult.task.id)
+      const hierarchy = startResult.hierarchy_summary
+
+      // Verify parent relationships in hierarchy display
+      expect(hierarchy).toMatch(/Main Project.*\| - \|/)
+      expect(hierarchy).toMatch(/Branch 1.*\| Main Project \|/)
+      expect(hierarchy).toMatch(/Branch 2.*\| Main Project \|/)
+      expect(hierarchy).toMatch(/Leaf 1.*\| Branch 1 \|/)
+      expect(hierarchy).toMatch(/Leaf 2.*\| Branch 2 \|/)
     })
   })
 })

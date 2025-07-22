@@ -517,8 +517,9 @@ export function startTask(id: string): {
 
   writeTasks(tasks)
 
-  // Generate hierarchy summary
-  const hierarchySummary = generateHierarchySummary(tasks)
+  // Generate hierarchy summary with changed task IDs
+  const changedTaskIds = new Set<string>(startedTasks.map((t) => t.id))
+  const hierarchySummary = generateHierarchySummary(tasks, changedTaskIds)
 
   return {
     hierarchy_summary: hierarchySummary.table,
@@ -561,9 +562,13 @@ function calculateOverallProgress(tasks: Task[]): {
 /**
  * Generate hierarchical progress table rows
  * @param tasks All tasks
+ * @param changedTaskIds Set of task IDs that had their status changed in this operation
  * @returns Array of progress rows for parent tasks
  */
-function generateProgressRows(tasks: Task[]): TaskProgressRow[] {
+function generateProgressRows(
+  tasks: Task[],
+  changedTaskIds: Set<string> = new Set<string>(),
+): TaskProgressRow[] {
   const parentTasks = tasks.filter((task) =>
     tasks.some((t) => t.parentId === task.id),
   )
@@ -579,10 +584,17 @@ function generateProgressRows(tasks: Task[]): TaskProgressRow[] {
         ? Math.round((completed_subtasks / total_subtasks) * 100)
         : 0
 
+    // Find parent task name
+    const parentInfo = parentTask.parentId
+      ? tasks.find((t) => t.id === parentTask.parentId)
+      : undefined
+
     return {
       completed_subtasks,
+      parent_name: parentInfo?.name,
       progress_percentage,
       status: parentTask.status,
+      status_changed: changedTaskIds.has(parentTask.id),
       task_name: parentTask.name,
       total_subtasks,
     }
@@ -599,8 +611,10 @@ function generateMarkdownTable(rows: TaskProgressRow[]): string {
     return "No hierarchical tasks found."
   }
 
-  const header = "| Task Name | Status | Subtasks | Progress |"
-  const separator = "|-----------|--------|----------|----------|"
+  const header =
+    "| Task Name | Status | Parent Task | Status Changed | Subtasks | Progress |"
+  const separator =
+    "|-----------|--------|-------------|----------------|----------|----------|"
 
   const tableRows = rows.map((row) => {
     const statusDisplay =
@@ -609,7 +623,9 @@ function generateMarkdownTable(rows: TaskProgressRow[]): string {
         : row.status === "in_progress"
           ? "in_progress"
           : "done"
-    return `| ${row.task_name} | ${statusDisplay} | ${row.completed_subtasks}/${row.total_subtasks} | ${row.progress_percentage}% |`
+    const parentDisplay = row.parent_name || "-"
+    const statusChangedDisplay = row.status_changed ? "✓" : "-"
+    return `| ${row.task_name} | ${statusDisplay} | ${parentDisplay} | ${statusChangedDisplay} | ${row.completed_subtasks}/${row.total_subtasks} | ${row.progress_percentage}% |`
   })
 
   return [header, separator, ...tableRows].join("\n")
@@ -618,11 +634,15 @@ function generateMarkdownTable(rows: TaskProgressRow[]): string {
 /**
  * Generate complete progress summary
  * @param tasks All tasks
+ * @param changedTaskIds Set of task IDs that had their status changed in this operation
  * @returns Complete progress summary
  */
-function generateProgressSummary(tasks: Task[]): ProgressSummary {
+function generateProgressSummary(
+  tasks: Task[],
+  changedTaskIds: Set<string> = new Set<string>(),
+): ProgressSummary {
   const overallProgress = calculateOverallProgress(tasks)
-  const progressRows = generateProgressRows(tasks)
+  const progressRows = generateProgressRows(tasks, changedTaskIds)
   const table = generateMarkdownTable(progressRows)
 
   return {
@@ -638,12 +658,14 @@ function generateProgressSummary(tasks: Task[]): ProgressSummary {
 /**
  * Generate hierarchy summary rows recursively
  * @param tasks All tasks
+ * @param changedTaskIds Set of task IDs that had their status changed in this operation
  * @param parentId Parent task ID (undefined for root tasks)
  * @param depth Current depth level
  * @returns Array of hierarchy summary rows
  */
 function generateHierarchySummaryRows(
   tasks: Task[],
+  changedTaskIds: Set<string> = new Set<string>(),
   parentId: string | undefined = undefined,
   depth = 0,
 ): HierarchySummaryRow[] {
@@ -655,16 +677,29 @@ function generateHierarchySummaryRows(
 
   for (const task of childTasks) {
     const indent = "  ".repeat(depth) // 2 spaces per depth level
+
+    // Find parent task name
+    const parentInfo = task.parentId
+      ? tasks.find((t) => t.id === task.parentId)
+      : undefined
+
     rows.push({
       depth,
       indent,
       name: task.name,
+      parent_name: parentInfo?.name,
       status: task.status,
+      status_changed: changedTaskIds.has(task.id),
       task_id: task.id,
     })
 
     // Recursively add child tasks
-    const childRows = generateHierarchySummaryRows(tasks, task.id, depth + 1)
+    const childRows = generateHierarchySummaryRows(
+      tasks,
+      changedTaskIds,
+      task.id,
+      depth + 1,
+    )
     rows.push(...childRows)
   }
 
@@ -681,8 +716,8 @@ function generateHierarchyMarkdownTable(rows: HierarchySummaryRow[]): string {
     return "No tasks found."
   }
 
-  const header = "| Task Structure | Status |"
-  const separator = "|----------------|--------|"
+  const header = "| Task Structure | Parent Task | Status | Status Changed |"
+  const separator = "|----------------|-------------|--------|----------------|"
 
   const tableRows = rows.map((row) => {
     const taskDisplay = `${row.indent}${row.name}`
@@ -692,7 +727,9 @@ function generateHierarchyMarkdownTable(rows: HierarchySummaryRow[]): string {
         : row.status === "in_progress"
           ? "⚡ in_progress"
           : "✅ done"
-    return `| ${taskDisplay} | ${statusDisplay} |`
+    const parentDisplay = row.parent_name || "-"
+    const statusChangedDisplay = row.status_changed ? "✓" : "-"
+    return `| ${taskDisplay} | ${parentDisplay} | ${statusDisplay} | ${statusChangedDisplay} |`
   })
 
   return [header, separator, ...tableRows].join("\n")
@@ -701,10 +738,14 @@ function generateHierarchyMarkdownTable(rows: HierarchySummaryRow[]): string {
 /**
  * Generate complete hierarchy summary
  * @param tasks All tasks
+ * @param changedTaskIds Set of task IDs that had their status changed in this operation
  * @returns Complete hierarchy summary
  */
-function generateHierarchySummary(tasks: Task[]): HierarchySummary {
-  const rows = generateHierarchySummaryRows(tasks)
+function generateHierarchySummary(
+  tasks: Task[],
+  changedTaskIds: Set<string> = new Set<string>(),
+): HierarchySummary {
+  const rows = generateHierarchySummaryRows(tasks, changedTaskIds)
   const table = generateHierarchyMarkdownTable(rows)
   const total_levels =
     rows.length > 0 ? Math.max(...rows.map((row) => row.depth)) + 1 : 0
@@ -833,8 +874,12 @@ export function completeTask(params: { id: string; resolution: string }): {
 
   writeTasks(tasks)
 
-  // Generate progress summary with updated tasks
-  const progress_summary = generateProgressSummary(tasks)
+  // Generate progress summary with updated tasks and changed task IDs
+  const changedTaskIds = new Set<string>([
+    updatedTask.id,
+    ...autoCompletedParents.map((p) => p.id),
+  ])
+  const progress_summary = generateProgressSummary(tasks, changedTaskIds)
 
   // Find next task to execute
   const nextTask = findNextTask(tasks, updatedTask)
