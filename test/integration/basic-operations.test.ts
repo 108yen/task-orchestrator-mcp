@@ -34,7 +34,7 @@ describe("Basic CRUD Operations Integration Tests", () => {
         id: expect.any(String),
         name: "test task",
         order: 1,
-        parent_id: undefined,
+        parentId: undefined,
         resolution: undefined,
         status: "todo",
         updatedAt: expect.stringMatching(
@@ -56,7 +56,7 @@ describe("Basic CRUD Operations Integration Tests", () => {
           description: "child description",
           name: "child task",
           order: 5,
-          parent_id: parentTask.id,
+          parentId: parentTask.id,
         },
         name: "createTask",
       })) as MCPResponse
@@ -76,7 +76,7 @@ describe("Basic CRUD Operations Integration Tests", () => {
         id: expect.any(String),
         name: "child task",
         order: 5,
-        parent_id: parentTask.id,
+        parentId: parentTask.id,
         resolution: undefined,
         status: "todo",
         updatedAt: expect.stringMatching(
@@ -207,7 +207,7 @@ describe("Basic CRUD Operations Integration Tests", () => {
       )
     })
 
-    it("should filter tasks by parent_id", async () => {
+    it("should filter tasks by parentId", async () => {
       // Create parent task
       const parentTask = await createTestTask("parent task")
 
@@ -220,7 +220,7 @@ describe("Basic CRUD Operations Integration Tests", () => {
 
       const result = (await client.callTool({
         arguments: {
-          parent_id: parentTask.id,
+          parentId: parentTask.id,
         },
         name: "listTasks",
       })) as MCPResponse
@@ -235,11 +235,11 @@ describe("Basic CRUD Operations Integration Tests", () => {
         expect.arrayContaining([
           expect.objectContaining({
             name: "child 1",
-            parent_id: parentTask.id,
+            parentId: parentTask.id,
           }),
           expect.objectContaining({
             name: "child 2",
-            parent_id: parentTask.id,
+            parentId: parentTask.id,
           }),
         ]),
       )

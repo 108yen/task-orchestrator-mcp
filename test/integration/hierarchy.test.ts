@@ -40,7 +40,7 @@ describe("Hierarchy Management Integration Tests", () => {
       // Test filtering by different parent levels
       const rootChildrenResult = (await client.callTool({
         arguments: {
-          parent_id: rootTask.id,
+          parentId: rootTask.id,
         },
         name: "listTasks",
       })) as MCPResponse
@@ -49,7 +49,7 @@ describe("Hierarchy Management Integration Tests", () => {
 
       const level1ChildrenResult = (await client.callTool({
         arguments: {
-          parent_id: level1Task1.id,
+          parentId: level1Task1.id,
         },
         name: "listTasks",
       })) as MCPResponse
@@ -58,7 +58,7 @@ describe("Hierarchy Management Integration Tests", () => {
 
       const level2ChildrenResult = (await client.callTool({
         arguments: {
-          parent_id: level1Task2.id,
+          parentId: level1Task2.id,
         },
         name: "listTasks",
       })) as MCPResponse

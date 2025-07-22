@@ -61,7 +61,7 @@ describe("registerTools", () => {
         description: expect.any(Object),
         name: expect.any(Object),
         order: expect.any(Object),
-        parent_id: expect.any(Object),
+        parentId: expect.any(Object),
       }),
     })
     expect(createTaskCall[2]).toBeTypeOf("function")
@@ -95,9 +95,9 @@ describe("registerTools", () => {
     expect(listTasksCall).toBeDefined()
     expect(listTasksCall[0]).toBe("listTasks")
     expect(listTasksCall[1]).toMatchObject({
-      description: "List tasks, optionally filtered by parent_id",
+      description: "List tasks, optionally filtered by parentId",
       inputSchema: expect.objectContaining({
-        parent_id: expect.any(Object),
+        parentId: expect.any(Object),
       }),
     })
     expect(listTasksCall[2]).toBeTypeOf("function")
@@ -119,7 +119,7 @@ describe("registerTools", () => {
         id: expect.any(Object),
         name: expect.any(Object),
         order: expect.any(Object),
-        parent_id: expect.any(Object),
+        parentId: expect.any(Object),
         resolution: expect.any(Object),
         status: expect.any(Object),
       }),

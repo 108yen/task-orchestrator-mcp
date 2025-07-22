@@ -19,7 +19,7 @@ describe("Storage", () => {
     id: "test-id-1",
     name: "Test Task",
     order: 1,
-    parent_id: undefined,
+    parentId: undefined,
     status: "todo",
     updatedAt: new Date("2024-01-01T00:00:00.000Z"),
   }
@@ -30,7 +30,7 @@ describe("Storage", () => {
     id: "test-id-2",
     name: "Completed Task",
     order: 2,
-    parent_id: "test-id-1",
+    parentId: "test-id-1",
     resolution: "Task completed successfully",
     status: "done",
     updatedAt: new Date("2024-01-01T01:00:00.000Z"),

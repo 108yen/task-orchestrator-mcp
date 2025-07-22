@@ -40,7 +40,7 @@ export interface Task {
   id: string // タスクを一意に識別するためのID（UUID）
   name: string // タスクの名称
   order: number // 兄弟タスク内での実行順序を示す数値
-  parent_id?: string // 親タスクのID（トップレベルの場合はundefined）
+  parentId?: string // 親タスクのID（トップレベルの場合はundefined）
   resolution?: string // タスク完了時の状態や結果（未完了時はundefined）
   status: string // タスクの進捗状況（'todo', 'in_progress', 'done'）
   updatedAt: Date // タスクの最終更新日時

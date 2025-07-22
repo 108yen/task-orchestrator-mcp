@@ -108,9 +108,9 @@ describe("Error Handling Tests", () => {
         )
       })
 
-      it("should throw error for non-existent parent_id", () => {
+      it("should throw error for non-existent parentId", () => {
         expect(() =>
-          createTask({ name: "Test", parent_id: "non-existent-id" }),
+          createTask({ name: "Test", parentId: "non-existent-id" }),
         ).toThrow("Parent task with id 'non-existent-id' does not exist")
       })
     })
@@ -197,15 +197,15 @@ describe("Error Handling Tests", () => {
 
       it("should throw error for circular parent reference", () => {
         const { task } = createTask({ name: "Test" })
-        expect(() => updateTask({ id: task.id, parent_id: task.id })).toThrow(
+        expect(() => updateTask({ id: task.id, parentId: task.id })).toThrow(
           "Task cannot be its own parent",
         )
       })
 
-      it("should throw error for non-existent parent_id", () => {
+      it("should throw error for non-existent parentId", () => {
         const { task } = createTask({ name: "Test" })
         expect(() =>
-          updateTask({ id: task.id, parent_id: "non-existent" }),
+          updateTask({ id: task.id, parentId: "non-existent" }),
         ).toThrow("Parent task with id 'non-existent' does not exist")
       })
     })
@@ -334,7 +334,7 @@ describe("Error Handling Tests", () => {
 
       it("should throw error when deleting task with children", () => {
         const { task: parentTask } = createTask({ name: "Parent" })
-        createTask({ name: "Child", parent_id: parentTask.id })
+        createTask({ name: "Child", parentId: parentTask.id })
 
         expect(() => deleteTask(parentTask.id)).toThrow(
           `Cannot delete task '${parentTask.id}' because it has child tasks`,
@@ -345,20 +345,20 @@ describe("Error Handling Tests", () => {
     describe("Hierarchical relationship errors", () => {
       it("should prevent creating task with non-existent parent", () => {
         expect(() =>
-          createTask({ name: "Child", parent_id: "fake-parent-id" }),
+          createTask({ name: "Child", parentId: "fake-parent-id" }),
         ).toThrow("Parent task with id 'fake-parent-id' does not exist")
       })
 
       it("should prevent updating task to have non-existent parent", () => {
         const { task } = createTask({ name: "Test" })
         expect(() =>
-          updateTask({ id: task.id, parent_id: "fake-parent-id" }),
+          updateTask({ id: task.id, parentId: "fake-parent-id" }),
         ).toThrow("Parent task with id 'fake-parent-id' does not exist")
       })
 
       it("should prevent self-referential parent relationship", () => {
         const { task } = createTask({ name: "Test" })
-        expect(() => updateTask({ id: task.id, parent_id: task.id })).toThrow(
+        expect(() => updateTask({ id: task.id, parentId: task.id })).toThrow(
           "Task cannot be its own parent",
         )
       })
@@ -463,8 +463,8 @@ describe("Error Handling Tests", () => {
       it("should handle empty task list operations", () => {
         expect(() => listTasks()).not.toThrow()
         expect(listTasks()).toEqual([])
-        expect(() => listTasks({ parent_id: "non-existent" })).not.toThrow()
-        expect(listTasks({ parent_id: "non-existent" })).toEqual([])
+        expect(() => listTasks({ parentId: "non-existent" })).not.toThrow()
+        expect(listTasks({ parentId: "non-existent" })).toEqual([])
       })
 
       it("should handle large number of tasks", () => {
@@ -526,7 +526,7 @@ describe("Error Handling Tests", () => {
             description: undefined,
             name: "Test",
             order: undefined,
-            parent_id: undefined,
+            parentId: undefined,
           }),
         ).not.toThrow()
 
@@ -537,7 +537,7 @@ describe("Error Handling Tests", () => {
             id: task.id,
             name: undefined,
             order: undefined,
-            parent_id: undefined,
+            parentId: undefined,
             resolution: undefined,
             status: undefined,
           }),
@@ -596,17 +596,17 @@ describe("Error Handling Tests", () => {
     })
 
     describe("Parent-child relationship edge cases", () => {
-      it("should allow removing parent by setting parent_id to empty string", () => {
+      it("should allow removing parent by setting parentId to empty string", () => {
         const { task: parent } = createTask({ name: "Parent" })
         const { task: child } = createTask({
           name: "Child",
-          parent_id: parent.id,
+          parentId: parent.id,
         })
 
-        expect(() => updateTask({ id: child.id, parent_id: "" })).not.toThrow()
+        expect(() => updateTask({ id: child.id, parentId: "" })).not.toThrow()
 
         const updatedChild = getTask(child.id)
-        expect(updatedChild.parent_id).toBeUndefined()
+        expect(updatedChild.parentId).toBeUndefined()
       })
 
       it("should allow changing parent to another valid parent", () => {
@@ -614,26 +614,26 @@ describe("Error Handling Tests", () => {
         const { task: parent2 } = createTask({ name: "Parent 2" })
         const { task: child } = createTask({
           name: "Child",
-          parent_id: parent1.id,
+          parentId: parent1.id,
         })
 
         expect(() =>
-          updateTask({ id: child.id, parent_id: parent2.id }),
+          updateTask({ id: child.id, parentId: parent2.id }),
         ).not.toThrow()
 
         const updatedChild = getTask(child.id)
-        expect(updatedChild.parent_id).toBe(parent2.id)
+        expect(updatedChild.parentId).toBe(parent2.id)
       })
 
       it("should allow deleting parent after removing all children", () => {
         const { task: parent } = createTask({ name: "Parent" })
         const { task: child1 } = createTask({
           name: "Child 1",
-          parent_id: parent.id,
+          parentId: parent.id,
         })
         const { task: child2 } = createTask({
           name: "Child 2",
-          parent_id: parent.id,
+          parentId: parent.id,
         })
 
         // Should fail initially
