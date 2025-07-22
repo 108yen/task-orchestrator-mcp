@@ -36,7 +36,7 @@ interface Task {
   description: string // タスクの詳細な説明
   status: string // タスクの進捗状況（'todo', 'in_progress', 'done'）
   resolution?: string // タスク完了時の状態や結果（未完了時はundefined）
-  parent_id?: string // 親タスクのID（トップレベルの場合はundefined）
+  parentId?: string // 親タスクのID（トップレベルの場合はundefined）
   order: number // 兄弟タスク内での実行順序を示す数値
   createdAt: Date // タスクの作成日時
   updatedAt: Date // タスクの最終更新日時
@@ -62,32 +62,34 @@ interface TaskProgressRow {
 
 ### MCPツールインターフェース
 
-| 機能           | ツール名       | 入力パラメータ                                                               | 出力                                                                                                              |
-| :------------- | :------------- | :--------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------- |
-| **タスク作成** | `createTask`   | `{ name: string, description?: string, parent_id?: string, order?: number }` | `{ task: Task, message?: string }`                                                                                |
-| **タスク取得** | `getTask`      | `{ id: string }`                                                             | `{ task: Task }`                                                                                                  |
-| **タスク一覧** | `listTasks`    | `{ parent_id?: string }`                                                     | `{ tasks: Task[] }`                                                                                               |
-| **タスク更新** | `updateTask`   | `{ id: string, name?: string, description?: string, status?: string, ... }`  | `{ task: Task }`                                                                                                  |
-| **タスク削除** | `deleteTask`   | `{ id: string }`                                                             | `{ id: string }`                                                                                                  |
-| **タスク開始** | `startTask`    | `{ id: string }`                                                             | `{ task: Task, subtask?: Task, message?: string, hierarchy_summary?: string }`                                    |
-| **タスク完了** | `completeTask` | `{ id: string, resolution: string }`                                         | `{ next_task_id?: string, message: string, progress_summary?: ProgressSummary, auto_completed_parents?: Task[] }` |
+| 機能           | ツール名       | 入力パラメータ                                                              | 出力                                                                                                              |
+| :------------- | :------------- | :-------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------- |
+| **タスク作成** | `createTask`   | `{ name: string, description?: string, parentId?: string, order?: number }` | `{ task: Task, message?: string }`                                                                                |
+| **タスク取得** | `getTask`      | `{ id: string }`                                                            | `{ task: Task }`                                                                                                  |
+| **タスク一覧** | `listTasks`    | `{ parentId?: string }`                                                     | `{ tasks: Task[] }`                                                                                               |
+| **タスク更新** | `updateTask`   | `{ id: string, name?: string, description?: string, status?: string, ... }` | `{ task: Task }`                                                                                                  |
+| **タスク削除** | `deleteTask`   | `{ id: string }`                                                            | `{ id: string }`                                                                                                  |
+| **タスク開始** | `startTask`    | `{ id: string }`                                                            | `{ task: Task, subtask?: Task, message?: string, hierarchy_summary?: string }`                                    |
+| **タスク完了** | `completeTask` | `{ id: string, resolution: string }`                                        | `{ next_task_id?: string, message: string, progress_summary?: ProgressSummary, auto_completed_parents?: Task[] }` |
 
 #### タスク作成時のorder処理ロジック
 
-- **order未指定時**: 同一parent_id内の兄弟タスクの最大order値+1を自動割り当て（兄弟がいない場合は1）
-- **order指定時**: 指定されたorder値が既存タスクと重複する場合、既存の同一parent_id内のタスクでorder値が指定値以上のものを1ずつ増加させて挿入処理を実行
+- **order未指定時**: 同一parentId内の兄弟タスクの最大order値+1を自動割り当て（兄弟がいない場合は1）
+- **order指定時**: 指定されたorder値が既存タスクと重複する場合、既存の同一parentId内のタスクでorder値が指定値以上のものを1ずつ増加させて挿入処理を実行
 
 #### タスク作成時のサブタスク推奨メッセージ
 
-- **ルートタスク作成時**: parent_idが未指定（ルートタスク）の場合、作成されたタスクと合わせて、そのタスクを達成するためのサブタスクの作成を推奨するメッセージを返す
+- **ルートタスク作成時**: parentIdが未指定（ルートタスク）の場合、作成されたタスクと合わせて、そのタスクを達成するためのサブタスクの作成を推奨するメッセージを返す
 
 #### タスク開始時のネストサブタスク自動開始ロジック
 
 - **親タスク開始時**: 指定されたタスクのステータスを'in_progress'に変更
+- **親ノードステータス更新**: タスク開始時、そのタスクの全ての親ノード（直接の親から最上位の親まで）のステータスを'in_progress'に更新
 - **ネストサブタスク自動開始**: そのタスクにサブタスクがある場合、再帰的に最も深いネストレベルにある完了していない最初のサブタスク（order順）を特定し、そのタスクまでの中間階層のステータスもすべて'in_progress'に変更
 - **階層管理**: 途中の階層のタスクも含めて、実行パス上のすべてのタスクのステータスを更新
 - **レスポンス拡張**: 開始されたサブタスクがある場合、メインタスクと最深サブタスクの両方の情報、自動開始されたことを示すメッセージ、および現在のタスク階層構造サマリーを返す
 - **階層構造表示**: エージェントがタスクの階層構造と現在の実行状況を把握できるよう、階層構造をテーブル形式で表示
+- **in_progressステータス制約**: システム全体で、末端ノード（サブタスクを持たないタスク）のうち一つだけが'in_progress'ステータスを持つことを許可。親ノードは子ノードが'in_progress'の場合に限り'in_progress'ステータスになる
 
 #### タスク完了時の階層管理および検証ロジック
 
@@ -146,7 +148,7 @@ export function writeTasks(tasks: Task[]): void
 
 タスクは階層構造で管理され、以下の特徴を持ちます：
 
-- **階層関係**: `parent_id`により親子関係を表現
+- **階層関係**: `parentId`により親子関係を表現
 - **実行順序**: 同一親の下で`order`フィールドにより順序制御
   - order未指定時: 兄弟タスクの最大order+1を自動割り当て
   - order指定時: 重複する場合は既存タスクを1ずつシフトして挿入
