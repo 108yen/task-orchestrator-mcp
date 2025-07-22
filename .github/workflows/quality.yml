@@ -107,13 +107,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup PNPM
-        uses: pnpm/action-setup@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 23
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
 
       - name: Install dependencies
         run: pnpm install
@@ -140,6 +140,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 23
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
 
       - name: Install dependencies
         run: pnpm install

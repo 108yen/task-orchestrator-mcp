@@ -11,6 +11,7 @@
     "prepack": "pnpm build",
     "build": "tsdown",
     "start": "node .",
+    "dev": "pnpm dlx @modelcontextprotocol/inspector node .",
     "lint": "eslint . --max-warnings=0 --cache",
     "lint:fix": "eslint . --max-warnings=0 --fix",
     "lint:inspect": "pnpm dlx @eslint/config-inspector",

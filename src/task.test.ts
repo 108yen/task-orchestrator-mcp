@@ -166,6 +166,108 @@ describe("Task Management", () => {
       expect(updatedTask1?.order).toBe(2)
       expect(updatedTask2?.order).toBe(3)
     })
+
+    it("should treat order = 0 as unspecified and assign to end", () => {
+      // Create some existing tasks
+      const result1 = createTask({ name: "Task 1", order: 1 })
+      const result2 = createTask({ name: "Task 2", order: 2 })
+      const result3 = createTask({ name: "Task 3", order: 3 })
+
+      // Create task with order = 0, should be treated as unspecified
+      const result0 = createTask({ name: "Task with order 0", order: 0 })
+
+      const tasks = listTasks()
+      const task0 = tasks.find((t) => t.id === result0.task.id)
+
+      // Should be assigned max order + 1 (i.e., 4), not 0
+      expect(task0?.order).toBe(4)
+
+      // Other tasks should remain unchanged
+      const task1 = tasks.find((t) => t.id === result1.task.id)
+      const task2 = tasks.find((t) => t.id === result2.task.id)
+      const task3 = tasks.find((t) => t.id === result3.task.id)
+
+      expect(task1?.order).toBe(1)
+      expect(task2?.order).toBe(2)
+      expect(task3?.order).toBe(3)
+    })
+
+    it("should handle order = 0 with siblings correctly", () => {
+      // Create parent task
+      const parent = createTask({ name: "Parent Task" })
+
+      // Create child tasks with orders 1, 2, 3
+      const child1 = createTask({
+        name: "Child 1",
+        order: 1,
+        parentId: parent.task.id,
+      })
+      const child2 = createTask({
+        name: "Child 2",
+        order: 2,
+        parentId: parent.task.id,
+      })
+      const child3 = createTask({
+        name: "Child 3",
+        order: 3,
+        parentId: parent.task.id,
+      })
+
+      // Create child with order = 0, should be assigned to end (order 4)
+      const child0 = createTask({
+        name: "Child with order 0",
+        order: 0,
+        parentId: parent.task.id,
+      })
+
+      const childTasks = listTasks({ parentId: parent.task.id })
+      const childWithOrder0 = childTasks.find((t) => t.id === child0.task.id)
+
+      expect(childWithOrder0?.order).toBe(4) // Should be at the end, not at position 0
+
+      // Verify other children remain unchanged
+      const child1Updated = childTasks.find((t) => t.id === child1.task.id)
+      const child2Updated = childTasks.find((t) => t.id === child2.task.id)
+      const child3Updated = childTasks.find((t) => t.id === child3.task.id)
+
+      expect(child1Updated?.order).toBe(1)
+      expect(child2Updated?.order).toBe(2)
+      expect(child3Updated?.order).toBe(3)
+    })
+
+    it("should handle order = 0 when no siblings exist", () => {
+      // Create parent task
+      const parent = createTask({ name: "Parent Task" })
+
+      // Create first child with order = 0, should get order 1
+      const child0 = createTask({
+        name: "Child with order 0",
+        order: 0,
+        parentId: parent.task.id,
+      })
+
+      const childTasks = listTasks({ parentId: parent.task.id })
+      const childWithOrder0 = childTasks.find((t) => t.id === child0.task.id)
+
+      expect(childWithOrder0?.order).toBe(1) // Should be assigned 1, not 0
+    })
+
+    it("should handle multiple order = 0 tasks correctly", () => {
+      // Create tasks with order = 0 multiple times
+      const task1 = createTask({ name: "Task 1 with order 0", order: 0 })
+      const task2 = createTask({ name: "Task 2 with order 0", order: 0 })
+      const task3 = createTask({ name: "Task 3 with order 0", order: 0 })
+
+      const tasks = listTasks()
+      const task1Found = tasks.find((t) => t.id === task1.task.id)
+      const task2Found = tasks.find((t) => t.id === task2.task.id)
+      const task3Found = tasks.find((t) => t.id === task3.task.id)
+
+      // All should be treated as unspecified and assigned incrementally
+      expect(task1Found?.order).toBe(1)
+      expect(task2Found?.order).toBe(2)
+      expect(task3Found?.order).toBe(3)
+    })
   })
 
   describe("getTask", () => {
@@ -774,8 +876,11 @@ describe("Task Management", () => {
       expect(completeResult.progress_summary.in_progress_tasks).toBe(0)
       expect(completeResult.progress_summary.todo_tasks).toBe(0)
       expect(completeResult.progress_summary.completion_percentage).toBe(100)
-      expect(completeResult.progress_summary.table).toBe(
-        "No hierarchical tasks found.",
+      expect(completeResult.progress_summary.table).toContain(
+        "| Task Name | Parent Task | Status | Status Changed | Subtasks | Progress |",
+      )
+      expect(completeResult.progress_summary.table).toContain(
+        "| Test Task | - | ✅ done | ✓ | - | 100% |",
       )
     })
 
@@ -829,10 +934,13 @@ describe("Task Management", () => {
 
       // Verify table format and content - since both children are done, parent shows 100%
       expect(completeResult.progress_summary.table).toContain(
-        "| Task Name | Status | Subtasks | Progress |",
+        "| Task Name | Parent Task | Status | Status Changed | Subtasks | Progress |",
       )
       expect(completeResult.progress_summary.table).toContain(
-        "| Parent Task | done | 2/2 | 100% |",
+        "| Parent Task | - | ✅ done | ✓ | 2/2 | 100% |",
+      )
+      expect(completeResult.progress_summary.table).toContain(
+        "| Child 2 | Parent Task | ✅ done | ✓ | - | 100% |",
       )
 
       // Verify overall statistics
@@ -882,8 +990,13 @@ describe("Task Management", () => {
 
       // Verify table includes both parent tasks with correct progress
       const table = completeResult.progress_summary.table
-      expect(table).toContain("| Main Task | done | 2/2 | 100% |")
-      expect(table).toContain("| Sub Task 1 | done | 2/2 | 100% |")
+      expect(table).toContain("| Main Task | - | ✅ done | ✓ | 2/2 | 100% |")
+      expect(table).toContain(
+        "| Sub Task 1 | Main Task | ✅ done | ✓ | 2/2 | 100% |",
+      )
+      expect(table).toContain(
+        "| Child 2 | Sub Task 1 | ✅ done | ✓ | - | 100% |",
+      )
 
       // Verify childTask2 is completed
       const updatedChildTask2 = getTask(childResult2.task.id)
@@ -1068,7 +1181,13 @@ describe("Task Management", () => {
 
         // Verify table shows parent as completed
         expect(completeResult.progress_summary.table).toContain(
-          "| Parent Task | done | 1/1 | 100% |",
+          "| Parent Task | - | ✅ done | ✓ | 1/1 | 100% |",
+        )
+        expect(completeResult.progress_summary.table).toContain(
+          "| Child Task | Parent Task | ✅ done | ✓ | - | 100% |",
+        )
+        expect(completeResult.progress_summary.table).toContain(
+          "| 1/1 | 100% |",
         )
       })
 
@@ -1414,6 +1533,104 @@ describe("Task Management", () => {
       expect(tasks.find((t: Task) => t.id === leaf2.task.id)?.status).toBe(
         "in_progress",
       )
+    })
+  })
+
+  describe("Table Display Extensions", () => {
+    it("should include parent task name and status changed in progress table", () => {
+      // Create parent and child tasks
+      const parentResult = createTask({ name: "Parent Task" })
+      const childResult = createTask({
+        name: "Child Task",
+        parentId: parentResult.task.id,
+      })
+      startTask(parentResult.task.id) // This will start both parent and child
+
+      // Complete child task
+      const completeResult = completeTask({
+        id: childResult.task.id,
+        resolution: "Completed",
+      })
+
+      // Verify table includes parent name and status changed fields
+      const table = completeResult.progress_summary.table
+      expect(table).toContain(
+        "| Task Name | Parent Task | Status | Status Changed | Subtasks | Progress |",
+      )
+      expect(table).toContain("| Parent Task | - | ✅ done | ✓ | 1/1 | 100% |")
+      expect(table).toContain(
+        "| Child Task | Parent Task | ✅ done | ✓ | - | 100% |",
+      )
+    })
+
+    it("should include parent task name and status changed in hierarchy summary", () => {
+      // Create hierarchical tasks
+      const rootResult = createTask({ name: "Root Task" })
+      const childResult = createTask({
+        name: "Child Task",
+        parentId: rootResult.task.id,
+      })
+      createTask({
+        name: "Grandchild Task",
+        parentId: childResult.task.id,
+      })
+
+      // Start the root task to get hierarchy summary
+      const startResult = startTask(rootResult.task.id)
+
+      // Verify hierarchy summary includes parent names and status changed
+      const hierarchy = startResult.hierarchy_summary
+      expect(hierarchy).toContain(
+        "| Task Structure | Parent Task | Status | Status Changed |",
+      )
+
+      // Check that parent names are correctly displayed
+      // Root should have no parent (-)
+      expect(hierarchy).toMatch(/Root Task.*\| - \|.*in_progress/)
+
+      // Child should have Root as parent
+      expect(hierarchy).toMatch(/Child Task.*\| Root Task \|.*in_progress/)
+
+      // Grandchild should have Child as parent
+      expect(hierarchy).toMatch(
+        /Grandchild Task.*\| Child Task \|.*in_progress/,
+      )
+
+      // All entries should have status changed indicators
+      expect(hierarchy).toMatch(/✓/)
+      expect(hierarchy).toMatch(/-/)
+    })
+
+    it("should handle complex hierarchy with correct parent names", () => {
+      // Create complex hierarchy: Main -> (Branch1, Branch2) -> (Leaf1, Leaf2)
+      const mainResult = createTask({ name: "Main Project" })
+      const branch1Result = createTask({
+        name: "Branch 1",
+        parentId: mainResult.task.id,
+      })
+      const branch2Result = createTask({
+        name: "Branch 2",
+        parentId: mainResult.task.id,
+      })
+      createTask({
+        name: "Leaf 1",
+        parentId: branch1Result.task.id,
+      })
+      createTask({
+        name: "Leaf 2",
+        parentId: branch2Result.task.id,
+      })
+
+      // Start from main task
+      const startResult = startTask(mainResult.task.id)
+      const hierarchy = startResult.hierarchy_summary
+
+      // Verify parent relationships in hierarchy display
+      expect(hierarchy).toMatch(/Main Project.*\| - \|/)
+      expect(hierarchy).toMatch(/Branch 1.*\| Main Project \|/)
+      expect(hierarchy).toMatch(/Branch 2.*\| Main Project \|/)
+      expect(hierarchy).toMatch(/Leaf 1.*\| Branch 1 \|/)
+      expect(hierarchy).toMatch(/Leaf 2.*\| Branch 2 \|/)
     })
   })
 })
