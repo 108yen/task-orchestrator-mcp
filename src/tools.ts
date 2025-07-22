@@ -34,7 +34,9 @@ export function registerTools(): void {
         name: z.string().describe("Task name (required)"),
         order: z
           .number()
-          .describe("Order within siblings (optional, defaults to 0)")
+          .describe(
+            "Order within siblings (optional, if not specified, it will be added to the end by default.)",
+          )
           .optional(),
         parentId: z
           .string()

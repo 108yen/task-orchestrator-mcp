@@ -38,7 +38,7 @@ export function createTask(params: {
 
   const siblings = tasks.filter((task) => task.parentId === parentId)
 
-  if (order === undefined) {
+  if (!order) {
     // If order is not specified, assign the max order + 1
     order =
       siblings.length > 0 ? Math.max(...siblings.map((t) => t.order)) + 1 : 1

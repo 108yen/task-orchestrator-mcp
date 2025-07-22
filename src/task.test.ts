@@ -166,6 +166,108 @@ describe("Task Management", () => {
       expect(updatedTask1?.order).toBe(2)
       expect(updatedTask2?.order).toBe(3)
     })
+
+    it("should treat order = 0 as unspecified and assign to end", () => {
+      // Create some existing tasks
+      const result1 = createTask({ name: "Task 1", order: 1 })
+      const result2 = createTask({ name: "Task 2", order: 2 })
+      const result3 = createTask({ name: "Task 3", order: 3 })
+
+      // Create task with order = 0, should be treated as unspecified
+      const result0 = createTask({ name: "Task with order 0", order: 0 })
+
+      const tasks = listTasks()
+      const task0 = tasks.find((t) => t.id === result0.task.id)
+
+      // Should be assigned max order + 1 (i.e., 4), not 0
+      expect(task0?.order).toBe(4)
+
+      // Other tasks should remain unchanged
+      const task1 = tasks.find((t) => t.id === result1.task.id)
+      const task2 = tasks.find((t) => t.id === result2.task.id)
+      const task3 = tasks.find((t) => t.id === result3.task.id)
+
+      expect(task1?.order).toBe(1)
+      expect(task2?.order).toBe(2)
+      expect(task3?.order).toBe(3)
+    })
+
+    it("should handle order = 0 with siblings correctly", () => {
+      // Create parent task
+      const parent = createTask({ name: "Parent Task" })
+
+      // Create child tasks with orders 1, 2, 3
+      const child1 = createTask({
+        name: "Child 1",
+        order: 1,
+        parentId: parent.task.id,
+      })
+      const child2 = createTask({
+        name: "Child 2",
+        order: 2,
+        parentId: parent.task.id,
+      })
+      const child3 = createTask({
+        name: "Child 3",
+        order: 3,
+        parentId: parent.task.id,
+      })
+
+      // Create child with order = 0, should be assigned to end (order 4)
+      const child0 = createTask({
+        name: "Child with order 0",
+        order: 0,
+        parentId: parent.task.id,
+      })
+
+      const childTasks = listTasks({ parentId: parent.task.id })
+      const childWithOrder0 = childTasks.find((t) => t.id === child0.task.id)
+
+      expect(childWithOrder0?.order).toBe(4) // Should be at the end, not at position 0
+
+      // Verify other children remain unchanged
+      const child1Updated = childTasks.find((t) => t.id === child1.task.id)
+      const child2Updated = childTasks.find((t) => t.id === child2.task.id)
+      const child3Updated = childTasks.find((t) => t.id === child3.task.id)
+
+      expect(child1Updated?.order).toBe(1)
+      expect(child2Updated?.order).toBe(2)
+      expect(child3Updated?.order).toBe(3)
+    })
+
+    it("should handle order = 0 when no siblings exist", () => {
+      // Create parent task
+      const parent = createTask({ name: "Parent Task" })
+
+      // Create first child with order = 0, should get order 1
+      const child0 = createTask({
+        name: "Child with order 0",
+        order: 0,
+        parentId: parent.task.id,
+      })
+
+      const childTasks = listTasks({ parentId: parent.task.id })
+      const childWithOrder0 = childTasks.find((t) => t.id === child0.task.id)
+
+      expect(childWithOrder0?.order).toBe(1) // Should be assigned 1, not 0
+    })
+
+    it("should handle multiple order = 0 tasks correctly", () => {
+      // Create tasks with order = 0 multiple times
+      const task1 = createTask({ name: "Task 1 with order 0", order: 0 })
+      const task2 = createTask({ name: "Task 2 with order 0", order: 0 })
+      const task3 = createTask({ name: "Task 3 with order 0", order: 0 })
+
+      const tasks = listTasks()
+      const task1Found = tasks.find((t) => t.id === task1.task.id)
+      const task2Found = tasks.find((t) => t.id === task2.task.id)
+      const task3Found = tasks.find((t) => t.id === task3.task.id)
+
+      // All should be treated as unspecified and assigned incrementally
+      expect(task1Found?.order).toBe(1)
+      expect(task2Found?.order).toBe(2)
+      expect(task3Found?.order).toBe(3)
+    })
   })
 
   describe("getTask", () => {

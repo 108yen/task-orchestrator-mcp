@@ -123,6 +123,76 @@ describe("Basic CRUD Operations Integration Tests", () => {
       const originalTask2 = tasks.find((t: any) => t.name === "task 2")
       expect(originalTask2?.order).toBe(3)
     })
+
+    it("should treat order = 0 as unspecified and assign to end", async () => {
+      // Create some existing tasks
+      const task1 = await createTestTask("task 1", undefined, undefined, 1)
+      const task2 = await createTestTask("task 2", undefined, undefined, 2)
+      const task3 = await createTestTask("task 3", undefined, undefined, 3)
+
+      // Create task with order = 0, should be treated as unspecified
+      const result0 = (await client.callTool({
+        arguments: { name: "task with order 0", order: 0 },
+        name: "createTask",
+      })) as MCPResponse
+      const task0 = parseMCPResponse(result0).task
+
+      // Should be assigned max order + 1 (i.e., 4), not 0
+      expect(task0.order).toBe(4)
+
+      // Verify other tasks remain unchanged
+      const listResult = (await client.callTool({
+        arguments: {},
+        name: "listTasks",
+      })) as MCPResponse
+      const { tasks } = parseMCPResponse(listResult)
+
+      const task1Updated = tasks.find((t: any) => t.id === task1.id)
+      const task2Updated = tasks.find((t: any) => t.id === task2.id)
+      const task3Updated = tasks.find((t: any) => t.id === task3.id)
+
+      expect(task1Updated?.order).toBe(1)
+      expect(task2Updated?.order).toBe(2)
+      expect(task3Updated?.order).toBe(3)
+    })
+
+    it("should handle order = 0 with parent tasks correctly", async () => {
+      // Create parent task
+      const parent = await createTestTask("parent task")
+
+      // Create child tasks with orders 1, 2, 3
+      const child1 = await createTestTask("child 1", parent.id, undefined, 1)
+      const child2 = await createTestTask("child 2", parent.id, undefined, 2)
+      const child3 = await createTestTask("child 3", parent.id, undefined, 3)
+
+      // Create child with order = 0, should be assigned to end (order 4)
+      const result0 = (await client.callTool({
+        arguments: {
+          name: "child with order 0",
+          order: 0,
+          parentId: parent.id,
+        },
+        name: "createTask",
+      })) as MCPResponse
+      const child0 = parseMCPResponse(result0).task
+
+      expect(child0.order).toBe(4) // Should be at the end, not at position 0
+
+      // Verify other children remain unchanged
+      const childrenResult = (await client.callTool({
+        arguments: { parentId: parent.id },
+        name: "listTasks",
+      })) as MCPResponse
+      const { tasks: children } = parseMCPResponse(childrenResult)
+
+      const child1Updated = children.find((t: any) => t.id === child1.id)
+      const child2Updated = children.find((t: any) => t.id === child2.id)
+      const child3Updated = children.find((t: any) => t.id === child3.id)
+
+      expect(child1Updated?.order).toBe(1)
+      expect(child2Updated?.order).toBe(2)
+      expect(child3Updated?.order).toBe(3)
+    })
   })
 
   describe("getTask", () => {
