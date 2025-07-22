@@ -66,3 +66,22 @@ pnpm release         # Publish stable release
 - Uses flat ESLint config with TypeScript integration
 - Supports both file-based and in-memory storage via `FILE_PATH` environment variable
 - Builds to both CommonJS and ESM formats for maximum compatibility
+
+## Technical Decisions
+
+### Task Execution Order Validation
+
+**Decision**: Implement strict execution order validation in `startTask` function to enforce sequential task completion within the same hierarchy level.
+
+**Rationale**:
+
+- Prevents workflow inconsistencies by ensuring tasks are completed in the intended order
+- Improves user experience by providing clear guidance on which tasks need to be completed first
+- Maintains data integrity in complex hierarchical task structures
+
+**Implementation Details**:
+
+- Validation occurs before any status changes are made
+- Error messages include detailed information about blocking tasks
+- Performance impact is minimal as it only involves array filtering operations on sibling tasks
+- Consistent with existing order-based execution logic throughout the system

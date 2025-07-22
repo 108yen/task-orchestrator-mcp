@@ -444,6 +444,9 @@ export function startTask(id: string): {
     throw new Error(`Task '${id}' is already in progress`)
   }
 
+  // Validate execution order - check if all preceding sibling tasks are completed
+  validateExecutionOrder(task, tasks)
+
   // Check if the task to be started is a leaf node
   const isLeafNode = !tasks.some((t) => t.parentId === task.id)
 
@@ -990,4 +993,86 @@ function findNextTask(tasks: Task[], completedTask: Task): Task | undefined {
   }
 
   return undefined
+}
+
+/**
+ * Validate execution order for starting a task
+ * Checks if all sibling tasks with smaller order values are completed
+ * @param taskToStart Task that is being started
+ * @param allTasks All tasks in the system
+ * @throws Error if execution order is violated
+ */
+function validateExecutionOrder(taskToStart: Task, allTasks: Task[]): void {
+  // Get all sibling tasks (tasks with the same parentId)
+  const siblings = allTasks.filter(
+    (task) =>
+      task.parentId === taskToStart.parentId && task.id !== taskToStart.id,
+  )
+
+  // Find incomplete siblings with smaller order values
+  const incompletePrecedingTasks = siblings.filter(
+    (sibling) => sibling.order < taskToStart.order && sibling.status !== "done",
+  )
+
+  if (incompletePrecedingTasks.length > 0) {
+    throw new Error(
+      generateExecutionOrderErrorMessage(
+        taskToStart,
+        incompletePrecedingTasks,
+        allTasks,
+      ),
+    )
+  }
+}
+
+/**
+ * Generate detailed error message for execution order violations
+ * @param taskToStart Task that is being started
+ * @param incompletePrecedingTasks Tasks that must be completed first
+ * @param allTasks All tasks in the system (for parent task info)
+ * @returns Detailed error message with task information table
+ */
+function generateExecutionOrderErrorMessage(
+  taskToStart: Task,
+  incompletePrecedingTasks: Task[],
+  allTasks: Task[],
+): string {
+  // Sort incomplete tasks by order for better error message
+  const sortedIncompleteTasks = incompletePrecedingTasks.sort(
+    (a, b) => a.order - b.order,
+  )
+
+  // Get parent task name if exists
+  const parentTask = taskToStart.parentId
+    ? allTasks.find((task) => task.id === taskToStart.parentId)
+    : null
+
+  const parentInfo = parentTask
+    ? ` within parent task "${parentTask.name}"`
+    : ` at the root level`
+
+  // Generate summary line
+  const taskNames = sortedIncompleteTasks
+    .map((task) => `"${task.name}" (order: ${task.order})`)
+    .join(", ")
+
+  // Generate markdown table for incomplete tasks
+  const tableHeader =
+    "| Order | Task Name | Status | Description |\n|-------|-----------|--------|-------------|"
+  const tableRows = sortedIncompleteTasks
+    .map(
+      (task) =>
+        `| ${task.order} | ${task.name} | ${task.status} | ${task.description || "No description"} |`,
+    )
+    .join("\n")
+
+  const incompleteTasksTable = `${tableHeader}\n${tableRows}`
+
+  const errorMessage =
+    `Execution order violation: Cannot start task "${taskToStart.name}" (order: ${taskToStart.order})${parentInfo}.\n\n` +
+    `The following ${sortedIncompleteTasks.length} task(s) with smaller order values must be completed first: ${taskNames}.\n\n` +
+    `Incomplete preceding tasks:\n${incompleteTasksTable}\n\n` +
+    `Please complete these tasks in order before starting the requested task.`
+
+  return errorMessage
 }
