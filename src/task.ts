@@ -17,9 +17,9 @@ export function createTask(params: {
   description?: string
   name: string
   order?: number
-  parent_id?: string
+  parentId?: string
 }): { message?: string; task: Task } {
-  const { description = "", name, parent_id } = params
+  const { description = "", name, parentId } = params
   let { order } = params
 
   if (!name || typeof name !== "string" || name.trim() === "") {
@@ -28,15 +28,15 @@ export function createTask(params: {
 
   const tasks = readTasks()
 
-  // Validate parent_id exists if provided
-  if (parent_id) {
-    const parentExists = tasks.some((task) => task.id === parent_id)
+  // Validate parentId exists if provided
+  if (parentId) {
+    const parentExists = tasks.some((task) => task.id === parentId)
     if (!parentExists) {
-      throw new Error(`Parent task with id '${parent_id}' does not exist`)
+      throw new Error(`Parent task with id '${parentId}' does not exist`)
     }
   }
 
-  const siblings = tasks.filter((task) => task.parent_id === parent_id)
+  const siblings = tasks.filter((task) => task.parentId === parentId)
 
   if (order === undefined) {
     // If order is not specified, assign the max order + 1
@@ -47,7 +47,7 @@ export function createTask(params: {
     const conflict = siblings.some((t) => t.order === order)
     if (conflict) {
       tasks.forEach((t) => {
-        if (t.parent_id === parent_id && t.order >= (order as number)) {
+        if (t.parentId === parentId && t.order >= (order as number)) {
           t.order += 1
         }
       })
@@ -61,7 +61,7 @@ export function createTask(params: {
     id: randomUUID(),
     name: name.trim(),
     order,
-    parent_id,
+    parentId,
     status: "todo",
     updatedAt: now,
   }
@@ -71,8 +71,8 @@ export function createTask(params: {
 
   // Generate recommendation message for root tasks
   let message: string | undefined
-  if (!parent_id) {
-    message = `Root task '${task.name}' created successfully. Consider breaking this down into smaller subtasks using createTask with parent_id='${task.id}' to better organize your workflow and track progress.`
+  if (!parentId) {
+    message = `Root task '${task.name}' created successfully. Consider breaking this down into smaller subtasks using createTask with parentId='${task.id}' to better organize your workflow and track progress.`
   }
 
   return { message, task }
@@ -99,18 +99,18 @@ export function getTask(id: string): Task {
 }
 
 /**
- * List tasks, optionally filtered by parent_id
+ * List tasks, optionally filtered by parentId
  * @param params Optional filtering parameters
  * @returns Array of tasks
  */
-export function listTasks(params?: { parent_id?: string }): Task[] {
+export function listTasks(params?: { parentId?: string }): Task[] {
   const tasks = readTasks()
 
-  if (!params?.parent_id) {
+  if (!params?.parentId) {
     return tasks
   }
 
-  return tasks.filter((task) => task.parent_id === params.parent_id)
+  return tasks.filter((task) => task.parentId === params.parentId)
 }
 
 /**
@@ -123,11 +123,11 @@ export function updateTask(params: {
   id: string
   name?: string
   order?: number
-  parent_id?: string
+  parentId?: string
   resolution?: string
   status?: string
 }): Task {
-  const { description, id, name, order, parent_id, resolution, status } = params
+  const { description, id, name, order, parentId, resolution, status } = params
 
   if (!id || typeof id !== "string") {
     throw new Error("Task ID is required and must be a string")
@@ -145,15 +145,15 @@ export function updateTask(params: {
     throw new Error(`Task with id '${id}' not found`)
   }
 
-  // Validate parent_id exists if provided and different from current
-  if (parent_id !== undefined && parent_id !== currentTask.parent_id) {
-    if (parent_id) {
-      const parentExists = tasks.some((task) => task.id === parent_id)
+  // Validate parentId exists if provided and different from current
+  if (parentId !== undefined && parentId !== currentTask.parentId) {
+    if (parentId) {
+      const parentExists = tasks.some((task) => task.id === parentId)
       if (!parentExists) {
-        throw new Error(`Parent task with id '${parent_id}' does not exist`)
+        throw new Error(`Parent task with id '${parentId}' does not exist`)
       }
       // Check for circular reference
-      if (parent_id === id) {
+      if (parentId === id) {
         throw new Error("Task cannot be its own parent")
       }
     }
@@ -196,8 +196,8 @@ export function updateTask(params: {
       typeof resolution === "string" ? resolution.trim() : undefined
   }
 
-  if (parent_id !== undefined) {
-    updatedTask.parent_id = parent_id || undefined
+  if (parentId !== undefined) {
+    updatedTask.parentId = parentId || undefined
   }
 
   if (order !== undefined) {
@@ -231,7 +231,7 @@ export function deleteTask(id: string): { id: string } {
   }
 
   // Check if task has children
-  const hasChildren = tasks.some((task) => task.parent_id === id)
+  const hasChildren = tasks.some((task) => task.parentId === id)
   if (hasChildren) {
     throw new Error(`Cannot delete task '${id}' because it has child tasks`)
   }
@@ -255,7 +255,7 @@ function findDeepestIncompleteSubtask(
   depth = 0,
 ): null | { deepestTask: Task; executionPath: Task[] } {
   const childTasks = tasks
-    .filter((task) => task.parent_id === taskId && task.status === "todo")
+    .filter((task) => task.parentId === taskId && task.status === "todo")
     .sort((a, b) => a.order - b.order)
 
   if (childTasks.length === 0) {
@@ -283,6 +283,130 @@ function findDeepestIncompleteSubtask(
   }
 
   return null
+}
+
+/**
+ * Helper function to find all leaf nodes (tasks without children)
+ */
+function findLeafNodes(tasks: Task[]): Task[] {
+  return tasks.filter((task) => !tasks.some((t) => t.parentId === task.id))
+}
+
+/**
+ * Helper function to reset all in_progress leaf nodes to todo
+ */
+function resetInProgressLeafNodes(tasks: Task[]): Task[] {
+  const leafNodes = findLeafNodes(tasks)
+  const inProgressLeafNodes = leafNodes.filter(
+    (task) => task.status === "in_progress",
+  )
+
+  if (inProgressLeafNodes.length === 0) {
+    return []
+  }
+
+  const updatedTasks: Task[] = []
+  const now = new Date()
+
+  for (const leafTask of inProgressLeafNodes) {
+    const taskIndex = tasks.findIndex((t) => t.id === leafTask.id)
+    if (taskIndex !== -1) {
+      const updatedTask: Task = {
+        ...leafTask,
+        status: "todo",
+        updatedAt: now,
+      }
+      tasks[taskIndex] = updatedTask
+      updatedTasks.push(updatedTask)
+    }
+  }
+
+  // After resetting leaf nodes, update parent statuses
+  updateParentStatusesAfterReset(tasks, now, updatedTasks)
+
+  return updatedTasks
+}
+
+/**
+ * Helper function to update parent statuses after leaf nodes are reset
+ */
+function updateParentStatusesAfterReset(
+  tasks: Task[],
+  now: Date,
+  updatedTasks: Task[],
+): void {
+  // Get all parent nodes that might need status updates
+  const allParents = tasks.filter((task) =>
+    tasks.some((t) => t.parentId === task.id),
+  )
+
+  for (const parent of allParents) {
+    const childTasks = tasks.filter((t) => t.parentId === parent.id)
+    const hasInProgressChild = childTasks.some(
+      (child) => child.status === "in_progress",
+    )
+
+    // If parent has no in_progress children and is currently in_progress, reset to todo
+    if (!hasInProgressChild && parent.status === "in_progress") {
+      const parentIndex = tasks.findIndex((t) => t.id === parent.id)
+      if (parentIndex !== -1) {
+        const updatedParent: Task = {
+          ...parent,
+          status: "todo",
+          updatedAt: now,
+        }
+        tasks[parentIndex] = updatedParent
+        updatedTasks.push(updatedParent)
+      }
+    }
+  }
+}
+
+/**
+ * Helper function to update parent node statuses based on child status
+ */
+function updateParentStatuses(taskId: string, tasks: Task[]): Task[] {
+  const updatedParents: Task[] = []
+  const now = new Date()
+
+  const task = tasks.find((t) => t.id === taskId)
+  if (!task?.parentId) {
+    return updatedParents
+  }
+
+  const parent = tasks.find((t) => t.id === task.parentId)
+  if (!parent) {
+    return updatedParents
+  }
+
+  // Check if this parent should be in_progress
+  const childTasks = tasks.filter((t) => t.parentId === parent.id)
+  const hasInProgressChild = childTasks.some(
+    (child) => child.status === "in_progress",
+  )
+
+  if (
+    hasInProgressChild &&
+    parent.status !== "in_progress" &&
+    parent.status !== "done"
+  ) {
+    const parentIndex = tasks.findIndex((t) => t.id === parent.id)
+    if (parentIndex !== -1) {
+      const updatedParent: Task = {
+        ...parent,
+        status: "in_progress",
+        updatedAt: now,
+      }
+      tasks[parentIndex] = updatedParent
+      updatedParents.push(updatedParent)
+
+      // Recursively update ancestors
+      const ancestorUpdates = updateParentStatuses(parent.id, tasks)
+      updatedParents.push(...ancestorUpdates)
+    }
+  }
+
+  return updatedParents
 }
 
 /**
@@ -320,6 +444,15 @@ export function startTask(id: string): {
     throw new Error(`Task '${id}' is already in progress`)
   }
 
+  // Check if the task to be started is a leaf node
+  const isLeafNode = !tasks.some((t) => t.parentId === task.id)
+
+  // If starting a leaf node, reset any existing in_progress leaf nodes
+  let resetLeafTasks: Task[] = []
+  if (isLeafNode) {
+    resetLeafTasks = resetInProgressLeafNodes(tasks)
+  }
+
   // Start the main task
   const updatedTask: Task = {
     ...task,
@@ -329,6 +462,10 @@ export function startTask(id: string): {
 
   tasks[taskIndex] = updatedTask
   const startedTasks: Task[] = [updatedTask]
+
+  // Update parent statuses based on the new in_progress task
+  const updatedParents = updateParentStatuses(task.id, tasks)
+  startedTasks.push(...updatedParents)
 
   // Find the deepest incomplete subtask and start all tasks in the execution path
   const deepestResult = findDeepestIncompleteSubtask(id, tasks)
@@ -349,6 +486,15 @@ export function startTask(id: string): {
         }
         tasks[pathTaskIndex] = updatedPathTask
         startedTasks.push(updatedPathTask)
+
+        // Update parent statuses for each task in the execution path
+        const pathParentUpdates = updateParentStatuses(pathTask.id, tasks)
+        for (const parentUpdate of pathParentUpdates) {
+          // Only add if not already in startedTasks
+          if (!startedTasks.some((st) => st.id === parentUpdate.id)) {
+            startedTasks.push(parentUpdate)
+          }
+        }
       }
     }
 
@@ -358,8 +504,15 @@ export function startTask(id: string): {
     } else {
       message = `Task '${task.name}' started. Auto-started ${depth} nested tasks down to deepest incomplete subtask '${executionPath[depth - 1]?.name}'.`
     }
+
+    if (resetLeafTasks.length > 0) {
+      message += ` Previously in-progress leaf tasks were reset to todo status.`
+    }
   } else {
     message = `Task '${task.name}' started. No incomplete subtasks found.`
+    if (resetLeafTasks.length > 0) {
+      message += ` Previously in-progress leaf tasks were reset to todo status.`
+    }
   }
 
   writeTasks(tasks)
@@ -412,11 +565,11 @@ function calculateOverallProgress(tasks: Task[]): {
  */
 function generateProgressRows(tasks: Task[]): TaskProgressRow[] {
   const parentTasks = tasks.filter((task) =>
-    tasks.some((t) => t.parent_id === task.id),
+    tasks.some((t) => t.parentId === task.id),
   )
 
   return parentTasks.map((parentTask) => {
-    const subtasks = tasks.filter((task) => task.parent_id === parentTask.id)
+    const subtasks = tasks.filter((task) => task.parentId === parentTask.id)
     const completed_subtasks = subtasks.filter(
       (task) => task.status === "done",
     ).length
@@ -495,7 +648,7 @@ function generateHierarchySummaryRows(
   depth = 0,
 ): HierarchySummaryRow[] {
   const childTasks = tasks
-    .filter((task) => task.parent_id === parentId)
+    .filter((task) => task.parentId === parentId)
     .sort((a, b) => a.order - b.order)
 
   const rows: HierarchySummaryRow[] = []
@@ -571,19 +724,19 @@ function generateHierarchySummary(tasks: Task[]): HierarchySummary {
 function autoCompleteParentTasks(tasks: Task[], completedTask: Task): Task[] {
   const autoCompletedParents: Task[] = []
 
-  if (!completedTask.parent_id) {
+  if (!completedTask.parentId) {
     // No parent to check
     return autoCompletedParents
   }
 
-  const parent = tasks.find((t) => t.id === completedTask.parent_id)
+  const parent = tasks.find((t) => t.id === completedTask.parentId)
   if (!parent || parent.status === "done") {
     // Parent doesn't exist or is already completed
     return autoCompletedParents
   }
 
   // Check if all siblings (including the completed task) are done
-  const siblings = tasks.filter((t) => t.parent_id === completedTask.parent_id)
+  const siblings = tasks.filter((t) => t.parentId === completedTask.parentId)
   const allSiblingsComplete = siblings.every((t) => t.status === "done")
 
   if (allSiblingsComplete) {
@@ -652,7 +805,7 @@ export function completeTask(params: { id: string; resolution: string }): {
   }
 
   // Check if the task has incomplete subtasks
-  const subtasks = tasks.filter((t) => t.parent_id === id)
+  const subtasks = tasks.filter((t) => t.parentId === id)
   if (subtasks.length > 0) {
     const incompleteSubtasks = subtasks.filter((t) => t.status !== "done")
     if (incompleteSubtasks.length > 0) {
@@ -721,7 +874,7 @@ function findNextTask(tasks: Task[], completedTask: Task): Task | undefined {
   // First, look for sibling tasks with higher order in the same parent
   const siblings = tasks.filter(
     (task) =>
-      task.parent_id === completedTask.parent_id &&
+      task.parentId === completedTask.parentId &&
       task.status === "todo" &&
       task.order > completedTask.order,
   )
@@ -733,7 +886,7 @@ function findNextTask(tasks: Task[], completedTask: Task): Task | undefined {
 
   // If no sibling tasks, look for child tasks of the completed task
   const children = tasks.filter(
-    (task) => task.parent_id === completedTask.id && task.status === "todo",
+    (task) => task.parentId === completedTask.id && task.status === "todo",
   )
 
   if (children.length > 0) {
@@ -742,12 +895,12 @@ function findNextTask(tasks: Task[], completedTask: Task): Task | undefined {
   }
 
   // If no children, look up the hierarchy for the next task
-  if (completedTask.parent_id) {
-    const parent = tasks.find((task) => task.id === completedTask.parent_id)
+  if (completedTask.parentId) {
+    const parent = tasks.find((task) => task.id === completedTask.parentId)
     if (parent) {
       // Check if all siblings of the completed task are done
       const allSiblings = tasks.filter(
-        (task) => task.parent_id === completedTask.parent_id,
+        (task) => task.parentId === completedTask.parentId,
       )
       const allSiblingsDone = allSiblings.every(
         (task) => task.status === "done",
@@ -762,7 +915,7 @@ function findNextTask(tasks: Task[], completedTask: Task): Task | undefined {
 
   // Look for any remaining todo tasks at the root level
   const rootTasks = tasks.filter(
-    (task) => !task.parent_id && task.status === "todo",
+    (task) => !task.parentId && task.status === "todo",
   )
 
   if (rootTasks.length > 0) {

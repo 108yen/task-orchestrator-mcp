@@ -73,20 +73,20 @@ describe("Task Management", () => {
       expect(result.message).toContain(
         "Consider breaking this down into smaller subtasks",
       )
-      expect(result.message).toContain(`parent_id='${result.task.id}'`)
+      expect(result.message).toContain(`parentId='${result.task.id}'`)
     })
 
     it("should create a subtask without recommendation message", () => {
       const parentResult = createTask({ name: "Parent Task" })
       const result = createTask({
         name: "Child Task",
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
 
       expect(result.task).toMatchObject({
         description: "",
         name: "Child Task",
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
         status: "todo",
       })
       expect(result.message).toBeUndefined()
@@ -100,14 +100,14 @@ describe("Task Management", () => {
         description: "Test description",
         name: "Child Task",
         order: 5,
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
 
       expect(result.task).toMatchObject({
         description: "Test description",
         name: "Child Task",
         order: 5,
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
         status: "todo",
       })
     })
@@ -128,7 +128,7 @@ describe("Task Management", () => {
 
     it("should throw error for non-existent parent", () => {
       expect(() =>
-        createTask({ name: "Test", parent_id: "non-existent" }),
+        createTask({ name: "Test", parentId: "non-existent" }),
       ).toThrow("Parent task with id 'non-existent' does not exist")
     })
 
@@ -199,22 +199,22 @@ describe("Task Management", () => {
       expect(tasks).toContain(result2.task)
     })
 
-    it("should filter by parent_id", () => {
+    it("should filter by parentId", () => {
       const parentResult = createTask({ name: "Parent" })
       const childResult = createTask({
         name: "Child",
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
       createTask({ name: "Other Task" })
 
-      const childTasks = listTasks({ parent_id: parentResult.task.id })
+      const childTasks = listTasks({ parentId: parentResult.task.id })
       expect(childTasks).toHaveLength(1)
       expect(childTasks[0]).toEqual(childResult.task)
     })
 
     it("should return empty array for non-existent parent", () => {
       createTask({ name: "Task" })
-      const tasks = listTasks({ parent_id: "non-existent" })
+      const tasks = listTasks({ parentId: "non-existent" })
       expect(tasks).toHaveLength(0)
     })
   })
@@ -280,20 +280,20 @@ describe("Task Management", () => {
     it("should throw error for circular parent reference", () => {
       const result = createTask({ name: "Test" })
       expect(() =>
-        updateTask({ id: result.task.id, parent_id: result.task.id }),
+        updateTask({ id: result.task.id, parentId: result.task.id }),
       ).toThrow("Task cannot be its own parent")
     })
 
-    it("should update parent_id to valid parent", () => {
+    it("should update parentId to valid parent", () => {
       const parentResult = createTask({ name: "Parent" })
       const childResult = createTask({ name: "Child" })
 
       const updatedTask = updateTask({
         id: childResult.task.id,
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
 
-      expect(updatedTask.parent_id).toBe(parentResult.task.id)
+      expect(updatedTask.parentId).toBe(parentResult.task.id)
     })
   })
 
@@ -314,7 +314,7 @@ describe("Task Management", () => {
 
     it("should throw error when task has children", () => {
       const parentResult = createTask({ name: "Parent" })
-      createTask({ name: "Child", parent_id: parentResult.task.id })
+      createTask({ name: "Child", parentId: parentResult.task.id })
 
       expect(() => deleteTask(parentResult.task.id)).toThrow(
         "Cannot delete task",
@@ -355,12 +355,12 @@ describe("Task Management", () => {
       const childResult1 = createTask({
         name: "Child 1",
         order: 1,
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
       const childResult2 = createTask({
         name: "Child 2",
         order: 2,
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
 
       const startResult = startTask(parentResult.task.id)
@@ -384,7 +384,7 @@ describe("Task Management", () => {
       const parentResult = createTask({ name: "Parent Task" })
       const childResult = createTask({
         name: "Child",
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
 
       // Complete the child task first
@@ -432,11 +432,11 @@ describe("Task Management", () => {
       const parentResult = createTask({ name: "Parent Task" })
       const childResult = createTask({
         name: "Child Task",
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
       const grandchildResult = createTask({
         name: "Grandchild Task",
-        parent_id: childResult.task.id,
+        parentId: childResult.task.id,
       })
 
       const startResult = startTask(parentResult.task.id)
@@ -461,16 +461,16 @@ describe("Task Management", () => {
       const child1Result = createTask({
         name: "Child 1",
         order: 1,
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
       const child2Result = createTask({
         name: "Child 2",
         order: 2,
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
       const grandchild1Result = createTask({
         name: "Grandchild 1",
-        parent_id: child1Result.task.id,
+        parentId: child1Result.task.id,
       })
 
       const startResult = startTask(parentResult.task.id)
@@ -494,16 +494,16 @@ describe("Task Management", () => {
       const child1Result = createTask({
         name: "Child 1",
         order: 1,
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
       const child2Result = createTask({
         name: "Child 2",
         order: 2,
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
       const grandchild2Result = createTask({
         name: "Grandchild 2",
-        parent_id: child2Result.task.id,
+        parentId: child2Result.task.id,
       })
 
       // Complete child 1
@@ -532,7 +532,7 @@ describe("Task Management", () => {
       const parentResult = createTask({ name: "Parent Task" })
       createTask({
         name: "Child Task",
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
 
       const startResult = startTask(parentResult.task.id)
@@ -548,11 +548,11 @@ describe("Task Management", () => {
       const parentResult = createTask({ name: "Root Task" })
       const child1Result = createTask({
         name: "Level 1 Task",
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
       createTask({
         name: "Level 2 Task",
-        parent_id: child1Result.task.id,
+        parentId: child1Result.task.id,
       })
 
       const startResult = startTask(parentResult.task.id)
@@ -588,17 +588,17 @@ describe("Task Management", () => {
       const parentResult = createTask({ name: "Parent Task" })
       createTask({
         name: "Active Child",
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
       const child2Result = createTask({
         name: "Completed Child",
         order: 2,
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
       createTask({
         name: "Todo Child",
         order: 3,
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
 
       // Complete child2 first
@@ -633,26 +633,26 @@ describe("Task Management", () => {
       const branchAResult = createTask({
         name: "Branch A",
         order: 1,
-        parent_id: rootResult.task.id,
+        parentId: rootResult.task.id,
       })
       const branchBResult = createTask({
         name: "Branch B",
         order: 2,
-        parent_id: rootResult.task.id,
+        parentId: rootResult.task.id,
       })
       createTask({
         name: "Leaf A1",
         order: 1,
-        parent_id: branchAResult.task.id,
+        parentId: branchAResult.task.id,
       })
       createTask({
         name: "Leaf A2",
         order: 2,
-        parent_id: branchAResult.task.id,
+        parentId: branchAResult.task.id,
       })
       createTask({
         name: "Leaf B1",
-        parent_id: branchBResult.task.id,
+        parentId: branchBResult.task.id,
       })
 
       const startResult = startTask(rootResult.task.id)
@@ -732,7 +732,7 @@ describe("Task Management", () => {
       const parentResult = createTask({ name: "Parent" })
       const childResult = createTask({
         name: "Child",
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
 
       // Complete the child task - this should auto-complete the parent too
@@ -807,11 +807,11 @@ describe("Task Management", () => {
       const parentResult = createTask({ name: "Parent Task" })
       const childResult1 = createTask({
         name: "Child 1",
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
       const childResult2 = createTask({
         name: "Child 2",
-        parent_id: parentResult.task.id,
+        parentId: parentResult.task.id,
       })
 
       // Complete first child task
@@ -847,20 +847,20 @@ describe("Task Management", () => {
 
       const subResult1 = createTask({
         name: "Sub Task 1",
-        parent_id: mainResult.task.id,
+        parentId: mainResult.task.id,
       })
       const subResult2 = createTask({
         name: "Sub Task 2",
-        parent_id: mainResult.task.id,
+        parentId: mainResult.task.id,
       })
 
       const childResult1 = createTask({
         name: "Child 1",
-        parent_id: subResult1.task.id,
+        parentId: subResult1.task.id,
       })
       const childResult2 = createTask({
         name: "Child 2",
-        parent_id: subResult1.task.id,
+        parentId: subResult1.task.id,
       })
 
       // Complete some tasks
@@ -901,11 +901,11 @@ describe("Task Management", () => {
         const parentResult = createTask({ name: "Parent Task" })
         const child1Result = createTask({
           name: "Child 1",
-          parent_id: parentResult.task.id,
+          parentId: parentResult.task.id,
         })
         createTask({
           name: "Child 2",
-          parent_id: parentResult.task.id,
+          parentId: parentResult.task.id,
         })
 
         // Complete only one child
@@ -924,11 +924,11 @@ describe("Task Management", () => {
         const parentResult = createTask({ name: "Parent Task" })
         const child1Result = createTask({
           name: "Child 1",
-          parent_id: parentResult.task.id,
+          parentId: parentResult.task.id,
         })
         const child2Result = createTask({
           name: "Child 2",
-          parent_id: parentResult.task.id,
+          parentId: parentResult.task.id,
         })
 
         // Complete both children first
@@ -950,11 +950,11 @@ describe("Task Management", () => {
         const mainResult = createTask({ name: "Main Task" })
         const subResult = createTask({
           name: "Sub Task",
-          parent_id: mainResult.task.id,
+          parentId: mainResult.task.id,
         })
         const childResult = createTask({
           name: "Child Task",
-          parent_id: subResult.task.id,
+          parentId: subResult.task.id,
         })
 
         // Try to complete main task (should fail - has incomplete descendants)
@@ -999,24 +999,24 @@ describe("Task Management", () => {
 
         const branch1Result = createTask({
           name: "Branch 1",
-          parent_id: rootResult.task.id,
+          parentId: rootResult.task.id,
         })
         const branch2Result = createTask({
           name: "Branch 2",
-          parent_id: rootResult.task.id,
+          parentId: rootResult.task.id,
         })
 
         const leaf1Result = createTask({
           name: "Leaf 1",
-          parent_id: branch1Result.task.id,
+          parentId: branch1Result.task.id,
         })
         const leaf2Result = createTask({
           name: "Leaf 2",
-          parent_id: branch1Result.task.id,
+          parentId: branch1Result.task.id,
         })
         const leaf3Result = createTask({
           name: "Leaf 3",
-          parent_id: branch2Result.task.id,
+          parentId: branch2Result.task.id,
         })
 
         // Complete all leaves of branch1
@@ -1052,7 +1052,7 @@ describe("Task Management", () => {
         const parentResult = createTask({ name: "Parent Task" })
         const childResult = createTask({
           name: "Child Task",
-          parent_id: parentResult.task.id,
+          parentId: parentResult.task.id,
         })
 
         // Complete child - should trigger parent auto-completion
@@ -1077,15 +1077,15 @@ describe("Task Management", () => {
         const parentResult = createTask({ name: "Project" })
         const child1Result = createTask({
           name: "Design Phase",
-          parent_id: parentResult.task.id,
+          parentId: parentResult.task.id,
         })
         const child2Result = createTask({
           name: "Development Phase",
-          parent_id: parentResult.task.id,
+          parentId: parentResult.task.id,
         })
         createTask({
           name: "Testing Phase",
-          parent_id: parentResult.task.id,
+          parentId: parentResult.task.id,
         })
 
         // Complete only first child
@@ -1111,6 +1111,309 @@ describe("Task Management", () => {
           "Cannot complete task 'Project' because it has incomplete subtasks: 'Testing Phase'. Please complete all subtasks first.",
         )
       })
+    })
+  })
+
+  describe("In-Progress Status Constraints", () => {
+    it("should allow only one leaf node to be in_progress at a time", () => {
+      // Create multiple leaf tasks
+      const leaf1 = createTask({ name: "Leaf Task 1" })
+      const leaf2 = createTask({ name: "Leaf Task 2" })
+      const leaf3 = createTask({ name: "Leaf Task 3" })
+
+      // Start first leaf task
+      startTask(leaf1.task.id)
+      const tasks1 = __getMockTasks() as Task[]
+      const inProgressTasks1 = tasks1.filter(
+        (t: Task) => t.status === "in_progress",
+      )
+      expect(inProgressTasks1).toHaveLength(1)
+      expect(inProgressTasks1[0]?.id).toBe(leaf1.task.id)
+
+      // Start second leaf task - should reset first one
+      startTask(leaf2.task.id)
+      const tasks2 = __getMockTasks() as Task[]
+      const inProgressTasks2 = tasks2.filter(
+        (t: Task) => t.status === "in_progress",
+      )
+      expect(inProgressTasks2).toHaveLength(1)
+      expect(inProgressTasks2[0]?.id).toBe(leaf2.task.id)
+
+      // Verify first task was reset to todo
+      const leaf1Updated = getTask(leaf1.task.id)
+      expect(leaf1Updated.status).toBe("todo")
+
+      // Start third leaf task - should reset second one
+      startTask(leaf3.task.id)
+      const tasks3 = __getMockTasks() as Task[]
+      const inProgressTasks3 = tasks3.filter(
+        (t: Task) => t.status === "in_progress",
+      )
+      expect(inProgressTasks3).toHaveLength(1)
+      expect(inProgressTasks3[0]?.id).toBe(leaf3.task.id)
+
+      // Verify second task was reset to todo
+      const leaf2Updated = getTask(leaf2.task.id)
+      expect(leaf2Updated.status).toBe("todo")
+    })
+
+    it("should allow parent nodes to be in_progress when children are in_progress", () => {
+      // Create parent-child hierarchy
+      const parent = createTask({ name: "Parent Task" })
+      const child1 = createTask({
+        name: "Child Task 1",
+        parentId: parent.task.id,
+      })
+      const child2 = createTask({
+        name: "Child Task 2",
+        parentId: parent.task.id,
+      })
+      const grandchild = createTask({
+        name: "Grandchild Task",
+        parentId: child1.task.id,
+      })
+
+      // Start grandchild task
+      const result = startTask(grandchild.task.id)
+
+      // Check that parent hierarchy is updated correctly
+      expect(result.started_tasks).toHaveLength(3) // grandchild, child1, parent
+
+      const tasks = __getMockTasks() as Task[]
+      const parentUpdated = tasks.find((t: Task) => t.id === parent.task.id)
+      const child1Updated = tasks.find((t: Task) => t.id === child1.task.id)
+      const child2Updated = tasks.find((t: Task) => t.id === child2.task.id)
+      const grandchildUpdated = tasks.find(
+        (t: Task) => t.id === grandchild.task.id,
+      )
+
+      expect(parentUpdated?.status).toBe("in_progress")
+      expect(child1Updated?.status).toBe("in_progress")
+      expect(child2Updated?.status).toBe("todo")
+      expect(grandchildUpdated?.status).toBe("in_progress")
+    })
+
+    it("should reset existing in_progress leaf when starting another leaf in same hierarchy", () => {
+      // Create parent with multiple children
+      const parent = createTask({ name: "Parent Task" })
+      const child1 = createTask({
+        name: "Child Task 1",
+        parentId: parent.task.id,
+      })
+      const child2 = createTask({
+        name: "Child Task 2",
+        parentId: parent.task.id,
+      })
+
+      // Start first child
+      startTask(child1.task.id)
+      const tasks1 = __getMockTasks() as Task[]
+      const parent1 = tasks1.find((t: Task) => t.id === parent.task.id)
+      const child1_1 = tasks1.find((t: Task) => t.id === child1.task.id)
+      expect(parent1?.status).toBe("in_progress")
+      expect(child1_1?.status).toBe("in_progress")
+
+      // Start second child - should reset first child and update parent chain
+      startTask(child2.task.id)
+      const tasks2 = __getMockTasks() as Task[]
+      const parent2 = tasks2.find((t: Task) => t.id === parent.task.id)
+      const child1_2 = tasks2.find((t: Task) => t.id === child1.task.id)
+      const child2_2 = tasks2.find((t: Task) => t.id === child2.task.id)
+
+      expect(parent2?.status).toBe("in_progress")
+      expect(child1_2?.status).toBe("todo")
+      expect(child2_2?.status).toBe("in_progress")
+
+      // Only one leaf should be in_progress
+      const inProgressLeaves = tasks2.filter(
+        (t: Task) =>
+          t.status === "in_progress" &&
+          !tasks2.some((child: Task) => child.parentId === t.id),
+      )
+      expect(inProgressLeaves).toHaveLength(1)
+      expect(inProgressLeaves[0]?.id).toBe(child2.task.id)
+    })
+
+    it("should properly handle complex nested hierarchy status updates", () => {
+      // Create 3-level hierarchy
+      const root = createTask({ name: "Root Task" })
+      const level1_1 = createTask({ name: "Level 1.1", parentId: root.task.id })
+      const level1_2 = createTask({ name: "Level 1.2", parentId: root.task.id })
+      const level2_1 = createTask({
+        name: "Level 2.1",
+        parentId: level1_1.task.id,
+      })
+      const level2_2 = createTask({
+        name: "Level 2.2",
+        parentId: level1_1.task.id,
+      })
+      const level3_1 = createTask({
+        name: "Level 3.1",
+        parentId: level2_1.task.id,
+      })
+
+      // Start deep nested task
+      const result = startTask(level3_1.task.id)
+
+      // All ancestors should be in_progress
+      expect(result.started_tasks).toHaveLength(4) // level3_1, level2_1, level1_1, root
+
+      const tasks = __getMockTasks() as Task[]
+      expect(tasks.find((t: Task) => t.id === root.task.id)?.status).toBe(
+        "in_progress",
+      )
+      expect(tasks.find((t: Task) => t.id === level1_1.task.id)?.status).toBe(
+        "in_progress",
+      )
+      expect(tasks.find((t: Task) => t.id === level1_2.task.id)?.status).toBe(
+        "todo",
+      )
+      expect(tasks.find((t: Task) => t.id === level2_1.task.id)?.status).toBe(
+        "in_progress",
+      )
+      expect(tasks.find((t: Task) => t.id === level2_2.task.id)?.status).toBe(
+        "todo",
+      )
+      expect(tasks.find((t: Task) => t.id === level3_1.task.id)?.status).toBe(
+        "in_progress",
+      )
+
+      // Create another leaf and start it
+      const otherLeaf = createTask({ name: "Other Leaf" })
+      startTask(otherLeaf.task.id)
+
+      // Previous leaf should be reset, but parent chain should remain in_progress
+      // if there are other in_progress children
+      const tasksAfter = __getMockTasks() as Task[]
+      expect(
+        tasksAfter.find((t: Task) => t.id === level3_1.task.id)?.status,
+      ).toBe("todo")
+      expect(
+        tasksAfter.find((t: Task) => t.id === otherLeaf.task.id)?.status,
+      ).toBe("in_progress")
+    })
+
+    it("should not reset in_progress leaf when starting a parent task", () => {
+      // Create parent-child hierarchy
+      const parent = createTask({ name: "Parent Task" })
+      const child = createTask({ name: "Child Task", parentId: parent.task.id })
+
+      // Start child (leaf) task first
+      startTask(child.task.id)
+
+      const tasksAfter = __getMockTasks() as Task[]
+      expect(tasksAfter.find((t: Task) => t.id === child.task.id)?.status).toBe(
+        "in_progress",
+      )
+      expect(
+        tasksAfter.find((t: Task) => t.id === parent.task.id)?.status,
+      ).toBe("in_progress")
+
+      // Parent is already in_progress due to child, so starting it again should throw error
+      expect(() => {
+        startTask(parent.task.id)
+      }).toThrow("is already in progress")
+    })
+  })
+
+  describe("Parent Node Status Management", () => {
+    it("should update all parent statuses when starting a deep nested task", () => {
+      // Create 4-level hierarchy
+      const level1 = createTask({ name: "Level 1" })
+      const level2 = createTask({ name: "Level 2", parentId: level1.task.id })
+      const level3 = createTask({ name: "Level 3", parentId: level2.task.id })
+      const level4 = createTask({ name: "Level 4", parentId: level3.task.id })
+
+      // Start the deepest task
+      const result = startTask(level4.task.id)
+
+      // All parents should be updated to in_progress
+      expect(result.started_tasks).toHaveLength(4)
+
+      const updatedTaskIds = result.started_tasks.map((t: Task) => t.id)
+      expect(updatedTaskIds).toContain(level1.task.id)
+      expect(updatedTaskIds).toContain(level2.task.id)
+      expect(updatedTaskIds).toContain(level3.task.id)
+      expect(updatedTaskIds).toContain(level4.task.id)
+
+      // Verify all are in_progress
+      const tasks = __getMockTasks() as Task[]
+      expect(tasks.find((t: Task) => t.id === level1.task.id)?.status).toBe(
+        "in_progress",
+      )
+      expect(tasks.find((t: Task) => t.id === level2.task.id)?.status).toBe(
+        "in_progress",
+      )
+      expect(tasks.find((t: Task) => t.id === level3.task.id)?.status).toBe(
+        "in_progress",
+      )
+      expect(tasks.find((t: Task) => t.id === level4.task.id)?.status).toBe(
+        "in_progress",
+      )
+    })
+
+    it("should not duplicate parent updates in started_tasks", () => {
+      // Create hierarchy with subtasks
+      const parent = createTask({ name: "Parent" })
+      const child1 = createTask({ name: "Child 1", parentId: parent.task.id })
+      createTask({ name: "Child 2", parentId: parent.task.id })
+      createTask({ name: "Grandchild 1", parentId: child1.task.id })
+      createTask({ name: "Grandchild 2", parentId: child1.task.id })
+
+      // Start parent which should auto-start the deepest subtask
+      const result = startTask(parent.task.id)
+
+      // Should not have duplicate entries for the same task
+      const taskIds = result.started_tasks.map((t: Task) => t.id)
+      const uniqueTaskIds = [...new Set(taskIds)]
+      expect(taskIds.length).toBe(uniqueTaskIds.length)
+
+      // Verify parent is only listed once
+      const parentEntries = result.started_tasks.filter(
+        (t: Task) => t.id === parent.task.id,
+      )
+      expect(parentEntries).toHaveLength(1)
+    })
+
+    it("should maintain parent status consistency across multiple operations", () => {
+      // Create complex hierarchy
+      const root = createTask({ name: "Root" })
+      const branch1 = createTask({ name: "Branch 1", parentId: root.task.id })
+      const branch2 = createTask({ name: "Branch 2", parentId: root.task.id })
+      const leaf1 = createTask({ name: "Leaf 1", parentId: branch1.task.id })
+      const leaf2 = createTask({ name: "Leaf 2", parentId: branch2.task.id })
+
+      // Start first leaf
+      startTask(leaf1.task.id)
+      let tasks = __getMockTasks() as Task[]
+      expect(tasks.find((t: Task) => t.id === root.task.id)?.status).toBe(
+        "in_progress",
+      )
+      expect(tasks.find((t: Task) => t.id === branch1.task.id)?.status).toBe(
+        "in_progress",
+      )
+      expect(tasks.find((t: Task) => t.id === branch2.task.id)?.status).toBe(
+        "todo",
+      )
+
+      // Start second leaf (should reset first)
+      startTask(leaf2.task.id)
+      tasks = __getMockTasks() as Task[]
+      expect(tasks.find((t: Task) => t.id === root.task.id)?.status).toBe(
+        "in_progress",
+      )
+      expect(tasks.find((t: Task) => t.id === branch1.task.id)?.status).toBe(
+        "todo",
+      )
+      expect(tasks.find((t: Task) => t.id === branch2.task.id)?.status).toBe(
+        "in_progress",
+      )
+      expect(tasks.find((t: Task) => t.id === leaf1.task.id)?.status).toBe(
+        "todo",
+      )
+      expect(tasks.find((t: Task) => t.id === leaf2.task.id)?.status).toBe(
+        "in_progress",
+      )
     })
   })
 })

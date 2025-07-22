@@ -36,7 +36,7 @@ export function registerTools(): void {
           .number()
           .describe("Order within siblings (optional, defaults to 0)")
           .optional(),
-        parent_id: z
+        parentId: z
           .string()
           .describe("Parent task ID for hierarchical organization (optional)")
           .optional(),
@@ -125,9 +125,9 @@ export function registerTools(): void {
   server.registerTool(
     "listTasks",
     {
-      description: "List tasks, optionally filtered by parent_id",
+      description: "List tasks, optionally filtered by parentId",
       inputSchema: {
-        parent_id: z
+        parentId: z
           .string()
           .describe("Filter tasks by parent ID (optional)")
           .optional(),
@@ -184,7 +184,7 @@ export function registerTools(): void {
           .number()
           .describe("Updated order within siblings (optional)")
           .optional(),
-        parent_id: z
+        parentId: z
           .string()
           .describe("Updated parent task ID (optional)")
           .optional(),

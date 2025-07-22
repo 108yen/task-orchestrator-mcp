@@ -78,7 +78,7 @@ export async function createTestTask(
     arguments: {
       name,
       ...(description && { description }),
-      ...(parentId && { parent_id: parentId }),
+      ...(parentId && { parentId: parentId }),
       ...(order && { order }),
     },
     name: "createTask",
