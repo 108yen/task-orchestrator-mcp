@@ -54,9 +54,26 @@ interface ProgressSummary {
 interface TaskProgressRow {
   task_name: string // タスク名
   status: string // ステータス
+  parent_name?: string // 親タスク名（親がある場合）
+  status_changed: boolean // ステータスが変更されたかどうか
   completed_subtasks: number // 完了済みサブタスク数
   total_subtasks: number // 総サブタスク数
   progress_percentage: number // 進捗率（0-100）
+}
+
+interface HierarchySummary {
+  table: string // マークダウン形式の階層テーブル文字列
+  total_levels: number // 階層の深さ
+}
+
+interface HierarchySummaryRow {
+  depth: number // ネストレベル（0が最上位）
+  indent: string // 階層表示用のインデント文字列
+  name: string // タスク名
+  parent_name?: string // 親タスク名（親がある場合）
+  status: string // ステータス
+  status_changed: boolean // ステータスが変更されたかどうか
+  task_id: string // タスクID
 }
 ```
 
@@ -69,7 +86,7 @@ interface TaskProgressRow {
 | **タスク一覧** | `listTasks`    | `{ parentId?: string }`                                                     | `{ tasks: Task[] }`                                                                                               |
 | **タスク更新** | `updateTask`   | `{ id: string, name?: string, description?: string, status?: string, ... }` | `{ task: Task }`                                                                                                  |
 | **タスク削除** | `deleteTask`   | `{ id: string }`                                                            | `{ id: string }`                                                                                                  |
-| **タスク開始** | `startTask`    | `{ id: string }`                                                            | `{ task: Task, subtask?: Task, message?: string, hierarchy_summary?: string }`                                    |
+| **タスク開始** | `startTask`    | `{ id: string }`                                                            | `{ task: Task, started_tasks: Task[], message?: string, hierarchy_summary?: string }`                             |
 | **タスク完了** | `completeTask` | `{ id: string, resolution: string }`                                        | `{ next_task_id?: string, message: string, progress_summary?: ProgressSummary, auto_completed_parents?: Task[] }` |
 
 #### タスク作成時のorder処理ロジック
@@ -88,7 +105,7 @@ interface TaskProgressRow {
 - **ネストサブタスク自動開始**: そのタスクにサブタスクがある場合、再帰的に最も深いネストレベルにある完了していない最初のサブタスク（order順）を特定し、そのタスクまでの中間階層のステータスもすべて'in_progress'に変更
 - **階層管理**: 途中の階層のタスクも含めて、実行パス上のすべてのタスクのステータスを更新
 - **レスポンス拡張**: 開始されたサブタスクがある場合、メインタスクと最深サブタスクの両方の情報、自動開始されたことを示すメッセージ、および現在のタスク階層構造サマリーを返す
-- **階層構造表示**: エージェントがタスクの階層構造と現在の実行状況を把握できるよう、階層構造をテーブル形式で表示
+- **階層構造表示**: エージェントがタスクの階層構造と現在の実行状況を把握できるよう、階層構造をテーブル形式で表示。テーブルには「Status Changed」列を追加し、その操作でステータスが変更されたタスクを明示的に示す。また「Parent Task」列を追加し、各タスクの親タスク名を表示する
 - **in_progressステータス制約**: システム全体で、末端ノード（サブタスクを持たないタスク）のうち一つだけが'in_progress'ステータスを持つことを許可。親ノードは子ノードが'in_progress'の場合に限り'in_progress'ステータスになる
 
 #### タスク完了時の階層管理および検証ロジック
@@ -122,17 +139,21 @@ interface TaskProgressRow {
 - 各行には以下の情報を含む：
   - タスク名
   - ステータス（todo/in_progress/done）
+  - 親タスク名（親がある場合）
+  - ステータス変更の有無（その操作でステータスが変更されたかどうか）
   - 完了済みサブタスク数 / 総サブタスク数
   - 進捗率（完了済みサブタスク数 / 総サブタスク数 × 100）
 
 **テーブル形式例**
 
 ```markdown
-| Task Name     | Status      | Subtasks | Progress |
-| ------------- | ----------- | -------- | -------- |
-| Main Feature  | in_progress | 3/5      | 60%      |
-| Sub Feature A | done        | 2/2      | 100%     |
+| Task Name     | Status      | Parent Task  | Status Changed | Subtasks | Progress |
+| ------------- | ----------- | ------------ | -------------- | -------- | -------- |
+| Main Feature  | in_progress | -            | ✓              | 3/5      | 60%      |
+| Sub Feature A | done        | Main Feature | -              | 2/2      | 100%     |
 ```
+
+このテーブル形式は、タスクの開始時（`startTask`）と完了時（`completeTask`）の両方で統一して使用されます。「Status Changed」列は、その操作でステータスが変更されたタスクに「✓」マークを表示し、「Parent Task」列は各タスクの親タスク名を表示します（トップレベルタスクの場合は「-」）。これにより、どのタスクのステータスが変更されたかが一目でわかり、タスクの階層関係も明確になります。
 
 ### ストレージインターフェース
 
