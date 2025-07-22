@@ -303,15 +303,22 @@ export function registerTools(): void {
           ],
         }
       } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error"
+        const isExecutionOrderError = errorMessage.includes(
+          "Execution order violation",
+        )
+
         return {
           content: [
             {
               text: JSON.stringify(
                 {
                   error: {
-                    code: "TASK_START_ERROR",
-                    message:
-                      error instanceof Error ? error.message : "Unknown error",
+                    code: isExecutionOrderError
+                      ? "EXECUTION_ORDER_VIOLATION"
+                      : "TASK_START_ERROR",
+                    message: errorMessage,
                   },
                 },
                 null,

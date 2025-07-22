@@ -887,13 +887,11 @@ describe("Task Management", () => {
     it("should calculate correct progress statistics for multiple tasks", () => {
       // Create a mix of tasks with different statuses
       const result1 = createTask({ name: "Task 1" })
-      const result2 = createTask({ name: "Task 2" })
+      createTask({ name: "Task 2" })
       createTask({ name: "Task 3" }) // Create a third task without storing the reference
 
-      // Set task2 to in_progress
-      startTask(result2.task.id)
-
       // Complete task1
+      startTask(result1.task.id)
       const completeResult = completeTask({
         id: result1.task.id,
         resolution: "Done",
@@ -902,8 +900,8 @@ describe("Task Management", () => {
       // Verify progress summary statistics
       expect(completeResult.progress_summary.total_tasks).toBe(3)
       expect(completeResult.progress_summary.completed_tasks).toBe(1)
-      expect(completeResult.progress_summary.in_progress_tasks).toBe(1)
-      expect(completeResult.progress_summary.todo_tasks).toBe(1)
+      expect(completeResult.progress_summary.in_progress_tasks).toBe(0)
+      expect(completeResult.progress_summary.todo_tasks).toBe(2)
       expect(completeResult.progress_summary.completion_percentage).toBe(33) // 1/3 = 33%
     })
 
@@ -1234,48 +1232,6 @@ describe("Task Management", () => {
   })
 
   describe("In-Progress Status Constraints", () => {
-    it("should allow only one leaf node to be in_progress at a time", () => {
-      // Create multiple leaf tasks
-      const leaf1 = createTask({ name: "Leaf Task 1" })
-      const leaf2 = createTask({ name: "Leaf Task 2" })
-      const leaf3 = createTask({ name: "Leaf Task 3" })
-
-      // Start first leaf task
-      startTask(leaf1.task.id)
-      const tasks1 = __getMockTasks() as Task[]
-      const inProgressTasks1 = tasks1.filter(
-        (t: Task) => t.status === "in_progress",
-      )
-      expect(inProgressTasks1).toHaveLength(1)
-      expect(inProgressTasks1[0]?.id).toBe(leaf1.task.id)
-
-      // Start second leaf task - should reset first one
-      startTask(leaf2.task.id)
-      const tasks2 = __getMockTasks() as Task[]
-      const inProgressTasks2 = tasks2.filter(
-        (t: Task) => t.status === "in_progress",
-      )
-      expect(inProgressTasks2).toHaveLength(1)
-      expect(inProgressTasks2[0]?.id).toBe(leaf2.task.id)
-
-      // Verify first task was reset to todo
-      const leaf1Updated = getTask(leaf1.task.id)
-      expect(leaf1Updated.status).toBe("todo")
-
-      // Start third leaf task - should reset second one
-      startTask(leaf3.task.id)
-      const tasks3 = __getMockTasks() as Task[]
-      const inProgressTasks3 = tasks3.filter(
-        (t: Task) => t.status === "in_progress",
-      )
-      expect(inProgressTasks3).toHaveLength(1)
-      expect(inProgressTasks3[0]?.id).toBe(leaf3.task.id)
-
-      // Verify second task was reset to todo
-      const leaf2Updated = getTask(leaf2.task.id)
-      expect(leaf2Updated.status).toBe("todo")
-    })
-
     it("should allow parent nodes to be in_progress when children are in_progress", () => {
       // Create parent-child hierarchy
       const parent = createTask({ name: "Parent Task" })
@@ -1310,106 +1266,6 @@ describe("Task Management", () => {
       expect(child1Updated?.status).toBe("in_progress")
       expect(child2Updated?.status).toBe("todo")
       expect(grandchildUpdated?.status).toBe("in_progress")
-    })
-
-    it("should reset existing in_progress leaf when starting another leaf in same hierarchy", () => {
-      // Create parent with multiple children
-      const parent = createTask({ name: "Parent Task" })
-      const child1 = createTask({
-        name: "Child Task 1",
-        parentId: parent.task.id,
-      })
-      const child2 = createTask({
-        name: "Child Task 2",
-        parentId: parent.task.id,
-      })
-
-      // Start first child
-      startTask(child1.task.id)
-      const tasks1 = __getMockTasks() as Task[]
-      const parent1 = tasks1.find((t: Task) => t.id === parent.task.id)
-      const child1_1 = tasks1.find((t: Task) => t.id === child1.task.id)
-      expect(parent1?.status).toBe("in_progress")
-      expect(child1_1?.status).toBe("in_progress")
-
-      // Start second child - should reset first child and update parent chain
-      startTask(child2.task.id)
-      const tasks2 = __getMockTasks() as Task[]
-      const parent2 = tasks2.find((t: Task) => t.id === parent.task.id)
-      const child1_2 = tasks2.find((t: Task) => t.id === child1.task.id)
-      const child2_2 = tasks2.find((t: Task) => t.id === child2.task.id)
-
-      expect(parent2?.status).toBe("in_progress")
-      expect(child1_2?.status).toBe("todo")
-      expect(child2_2?.status).toBe("in_progress")
-
-      // Only one leaf should be in_progress
-      const inProgressLeaves = tasks2.filter(
-        (t: Task) =>
-          t.status === "in_progress" &&
-          !tasks2.some((child: Task) => child.parentId === t.id),
-      )
-      expect(inProgressLeaves).toHaveLength(1)
-      expect(inProgressLeaves[0]?.id).toBe(child2.task.id)
-    })
-
-    it("should properly handle complex nested hierarchy status updates", () => {
-      // Create 3-level hierarchy
-      const root = createTask({ name: "Root Task" })
-      const level1_1 = createTask({ name: "Level 1.1", parentId: root.task.id })
-      const level1_2 = createTask({ name: "Level 1.2", parentId: root.task.id })
-      const level2_1 = createTask({
-        name: "Level 2.1",
-        parentId: level1_1.task.id,
-      })
-      const level2_2 = createTask({
-        name: "Level 2.2",
-        parentId: level1_1.task.id,
-      })
-      const level3_1 = createTask({
-        name: "Level 3.1",
-        parentId: level2_1.task.id,
-      })
-
-      // Start deep nested task
-      const result = startTask(level3_1.task.id)
-
-      // All ancestors should be in_progress
-      expect(result.started_tasks).toHaveLength(4) // level3_1, level2_1, level1_1, root
-
-      const tasks = __getMockTasks() as Task[]
-      expect(tasks.find((t: Task) => t.id === root.task.id)?.status).toBe(
-        "in_progress",
-      )
-      expect(tasks.find((t: Task) => t.id === level1_1.task.id)?.status).toBe(
-        "in_progress",
-      )
-      expect(tasks.find((t: Task) => t.id === level1_2.task.id)?.status).toBe(
-        "todo",
-      )
-      expect(tasks.find((t: Task) => t.id === level2_1.task.id)?.status).toBe(
-        "in_progress",
-      )
-      expect(tasks.find((t: Task) => t.id === level2_2.task.id)?.status).toBe(
-        "todo",
-      )
-      expect(tasks.find((t: Task) => t.id === level3_1.task.id)?.status).toBe(
-        "in_progress",
-      )
-
-      // Create another leaf and start it
-      const otherLeaf = createTask({ name: "Other Leaf" })
-      startTask(otherLeaf.task.id)
-
-      // Previous leaf should be reset, but parent chain should remain in_progress
-      // if there are other in_progress children
-      const tasksAfter = __getMockTasks() as Task[]
-      expect(
-        tasksAfter.find((t: Task) => t.id === level3_1.task.id)?.status,
-      ).toBe("todo")
-      expect(
-        tasksAfter.find((t: Task) => t.id === otherLeaf.task.id)?.status,
-      ).toBe("in_progress")
     })
 
     it("should not reset in_progress leaf when starting a parent task", () => {

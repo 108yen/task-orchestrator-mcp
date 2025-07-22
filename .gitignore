@@ -30,3 +30,6 @@ yarn-error.log*
 
 # eslint
 eslint-typegen.d.ts
+
+# task
+task.json
