@@ -569,33 +569,44 @@ function generateProgressRows(
   tasks: Task[],
   changedTaskIds: Set<string> = new Set<string>(),
 ): TaskProgressRow[] {
-  const parentTasks = tasks.filter((task) =>
-    tasks.some((t) => t.parentId === task.id),
-  )
+  // Sort tasks to maintain consistent display order (by parent hierarchy and order)
+  const sortedTasks = [...tasks].sort((a, b) => {
+    // First, sort by parentId (root tasks first)
+    if (!a.parentId && b.parentId) return -1
+    if (a.parentId && !b.parentId) return 1
+    if (a.parentId !== b.parentId)
+      return (a.parentId || "").localeCompare(b.parentId || "")
+    // Then sort by order within same parent
+    return a.order - b.order
+  })
 
-  return parentTasks.map((parentTask) => {
-    const subtasks = tasks.filter((task) => task.parentId === parentTask.id)
+  // Include all tasks instead of just parent tasks
+  return sortedTasks.map((task) => {
+    const subtasks = tasks.filter((t) => t.parentId === task.id)
     const completed_subtasks = subtasks.filter(
-      (task) => task.status === "done",
+      (t) => t.status === "done",
     ).length
     const total_subtasks = subtasks.length
     const progress_percentage =
       total_subtasks > 0
         ? Math.round((completed_subtasks / total_subtasks) * 100)
-        : 0
+        : 100 // Individual tasks without subtasks are 100% when done, 0% otherwise
 
     // Find parent task name
-    const parentInfo = parentTask.parentId
-      ? tasks.find((t) => t.id === parentTask.parentId)
+    const parentInfo = task.parentId
+      ? tasks.find((t) => t.id === task.parentId)
       : undefined
 
     return {
       completed_subtasks,
       parent_name: parentInfo?.name,
-      progress_percentage,
-      status: parentTask.status,
-      status_changed: changedTaskIds.has(parentTask.id),
-      task_name: parentTask.name,
+      progress_percentage:
+        task.status === "done" && total_subtasks === 0
+          ? 100
+          : progress_percentage,
+      status: task.status,
+      status_changed: changedTaskIds.has(task.id),
+      task_name: task.name,
       total_subtasks,
     }
   })
@@ -608,24 +619,35 @@ function generateProgressRows(
  */
 function generateMarkdownTable(rows: TaskProgressRow[]): string {
   if (rows.length === 0) {
-    return "No hierarchical tasks found."
+    return "No tasks found."
   }
 
   const header =
-    "| Task Name | Status | Parent Task | Status Changed | Subtasks | Progress |"
+    "| Task Name | Parent Task | Status | Status Changed | Subtasks | Progress |"
   const separator =
-    "|-----------|--------|-------------|----------------|----------|----------|"
+    "|-----------|-------------|--------|----------------|----------|----------|"
 
   const tableRows = rows.map((row) => {
     const statusDisplay =
       row.status === "todo"
-        ? "todo"
+        ? "📋 todo"
         : row.status === "in_progress"
-          ? "in_progress"
-          : "done"
+          ? "⚡ in_progress"
+          : "✅ done"
     const parentDisplay = row.parent_name || "-"
     const statusChangedDisplay = row.status_changed ? "✓" : "-"
-    return `| ${row.task_name} | ${statusDisplay} | ${parentDisplay} | ${statusChangedDisplay} | ${row.completed_subtasks}/${row.total_subtasks} | ${row.progress_percentage}% |`
+    const subtasksDisplay =
+      row.total_subtasks > 0
+        ? `${row.completed_subtasks}/${row.total_subtasks}`
+        : "-"
+    const progressDisplay =
+      row.total_subtasks > 0
+        ? `${row.progress_percentage}%`
+        : row.status === "done"
+          ? "100%"
+          : "0%"
+
+    return `| ${row.task_name} | ${parentDisplay} | ${statusDisplay} | ${statusChangedDisplay} | ${subtasksDisplay} | ${progressDisplay} |`
   })
 
   return [header, separator, ...tableRows].join("\n")

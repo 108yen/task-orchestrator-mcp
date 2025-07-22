@@ -59,12 +59,12 @@ describe("Table Display Integration Tests", () => {
 
       // Verify new table format with additional columns
       expect(progressTable).toContain(
-        "| Task Name | Status | Parent Task | Status Changed | Subtasks | Progress |",
+        "| Task Name | Parent Task | Status | Status Changed | Subtasks | Progress |",
       )
 
       // Verify parent task shows no parent (-)
       expect(progressTable).toMatch(
-        /\| Integration Parent Task \| done \| - \| ✓ \|/,
+        /\| Integration Parent Task \| - \| ✅ done \| ✓ \|/,
       )
 
       // Verify status changed column exists and shows check mark
@@ -119,9 +119,11 @@ describe("Table Display Integration Tests", () => {
       const progressTable = response.progress_summary.table
 
       // Verify both parent tasks show correct parent relationships
-      expect(progressTable).toMatch(/\| Root Level Task \| done \| - \| ✓ \|/)
       expect(progressTable).toMatch(
-        /\| Mid Level Task \| done \| Root Level Task \| ✓ \|/,
+        /\| Root Level Task \| - \| ✅ done \| ✓ \|/,
+      )
+      expect(progressTable).toMatch(
+        /\| Mid Level Task \| Root Level Task \| ✅ done \| ✓ \|/,
       )
 
       // Both should show 100% completion
@@ -184,7 +186,7 @@ describe("Table Display Integration Tests", () => {
 
       // Verify parent shows correct count of completed subtasks
       expect(progressTable).toContain(
-        "| Multi-Child Parent | done | - | ✓ | 2/2 | 100% |",
+        "| Multi-Child Parent | - | ✅ done | ✓ | 2/2 | 100% |",
       )
     })
   })
@@ -291,9 +293,9 @@ describe("Table Display Integration Tests", () => {
 
       // Verify indentation is preserved while showing parent names
       expect(hierarchySummary).toMatch(/\| Level 1 \| - \|/) // No indentation
-      expect(hierarchySummary).toMatch(/\| {3}Level 2 \| Level 1 \|/) // 2 spaces
-      expect(hierarchySummary).toMatch(/\| {5}Level 3 \| Level 2 \|/) // 4 spaces
-      expect(hierarchySummary).toMatch(/\| {7}Level 4 \| Level 3 \|/) // 6 spaces
+      expect(hierarchySummary).toMatch(/\| {3}Level 2 \| Level 1 \|/) // 3 spaces
+      expect(hierarchySummary).toMatch(/\| {5}Level 3 \| Level 2 \|/) // 5 spaces
+      expect(hierarchySummary).toMatch(/\| {7}Level 4 \| Level 3 \|/) // 7 spaces
     })
 
     it("should handle complex branching hierarchy correctly", async () => {
@@ -428,7 +430,7 @@ describe("Table Display Integration Tests", () => {
 
       // Extract completion status change indicator
       const completeStatusChangeMatch = progressTable.match(
-        /\| Timestamp Test Task \| done \| - \| ✓ \|/,
+        /\| Timestamp Test Task \| - \| ✅ done \| ✓ \|/,
       )
       expect(completeStatusChangeMatch).toBeTruthy()
 

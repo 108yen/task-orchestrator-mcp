@@ -774,8 +774,11 @@ describe("Task Management", () => {
       expect(completeResult.progress_summary.in_progress_tasks).toBe(0)
       expect(completeResult.progress_summary.todo_tasks).toBe(0)
       expect(completeResult.progress_summary.completion_percentage).toBe(100)
-      expect(completeResult.progress_summary.table).toBe(
-        "No hierarchical tasks found.",
+      expect(completeResult.progress_summary.table).toContain(
+        "| Task Name | Parent Task | Status | Status Changed | Subtasks | Progress |",
+      )
+      expect(completeResult.progress_summary.table).toContain(
+        "| Test Task | - | ✅ done | ✓ | - | 100% |",
       )
     })
 
@@ -829,12 +832,14 @@ describe("Task Management", () => {
 
       // Verify table format and content - since both children are done, parent shows 100%
       expect(completeResult.progress_summary.table).toContain(
-        "| Task Name | Status | Parent Task | Status Changed | Subtasks | Progress |",
+        "| Task Name | Parent Task | Status | Status Changed | Subtasks | Progress |",
       )
       expect(completeResult.progress_summary.table).toContain(
-        "| Parent Task | done | - | ✓ |",
+        "| Parent Task | - | ✅ done | ✓ | 2/2 | 100% |",
       )
-      expect(completeResult.progress_summary.table).toContain("| 2/2 | 100% |")
+      expect(completeResult.progress_summary.table).toContain(
+        "| Child 2 | Parent Task | ✅ done | ✓ | - | 100% |",
+      )
 
       // Verify overall statistics
       expect(completeResult.progress_summary.total_tasks).toBe(3)
@@ -883,9 +888,13 @@ describe("Task Management", () => {
 
       // Verify table includes both parent tasks with correct progress
       const table = completeResult.progress_summary.table
-      expect(table).toContain("| Main Task | done | - | ✓ |")
-      expect(table).toContain("| Sub Task 1 | done | Main Task | ✓ |")
-      expect(table).toContain("| 2/2 | 100% |")
+      expect(table).toContain("| Main Task | - | ✅ done | ✓ | 2/2 | 100% |")
+      expect(table).toContain(
+        "| Sub Task 1 | Main Task | ✅ done | ✓ | 2/2 | 100% |",
+      )
+      expect(table).toContain(
+        "| Child 2 | Sub Task 1 | ✅ done | ✓ | - | 100% |",
+      )
 
       // Verify childTask2 is completed
       const updatedChildTask2 = getTask(childResult2.task.id)
@@ -1070,7 +1079,10 @@ describe("Task Management", () => {
 
         // Verify table shows parent as completed
         expect(completeResult.progress_summary.table).toContain(
-          "| Parent Task | done | - | ✓ |",
+          "| Parent Task | - | ✅ done | ✓ | 1/1 | 100% |",
+        )
+        expect(completeResult.progress_summary.table).toContain(
+          "| Child Task | Parent Task | ✅ done | ✓ | - | 100% |",
         )
         expect(completeResult.progress_summary.table).toContain(
           "| 1/1 | 100% |",
@@ -1441,10 +1453,12 @@ describe("Task Management", () => {
       // Verify table includes parent name and status changed fields
       const table = completeResult.progress_summary.table
       expect(table).toContain(
-        "| Task Name | Status | Parent Task | Status Changed | Subtasks | Progress |",
+        "| Task Name | Parent Task | Status | Status Changed | Subtasks | Progress |",
       )
-      expect(table).toContain("| Parent Task | done | - | ✓ |")
-      expect(table).toMatch(/\| Parent Task \| done \| - \| ✓ \|/)
+      expect(table).toContain("| Parent Task | - | ✅ done | ✓ | 1/1 | 100% |")
+      expect(table).toContain(
+        "| Child Task | Parent Task | ✅ done | ✓ | - | 100% |",
+      )
     })
 
     it("should include parent task name and status changed in hierarchy summary", () => {
