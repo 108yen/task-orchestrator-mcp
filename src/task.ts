@@ -681,18 +681,49 @@ function generateProgressSummary(
 }
 
 /**
+ * Calculate subtask information for a task
+ * @param tasks All tasks
+ * @param taskId Target task ID
+ * @returns Object with subtasks string and progress string
+ */
+function calculateSubtaskInfo(
+  tasks: Task[],
+  taskId: string,
+): { progress: string; subtasks: string } {
+  const subtasks = tasks.filter((task) => task.parentId === taskId)
+
+  if (subtasks.length === 0) {
+    // No subtasks - progress based on task status
+    const task = tasks.find((t) => t.id === taskId)
+    const progress = task?.status === "done" ? "100%" : "0%"
+    return { progress, subtasks: "-" }
+  }
+
+  // Has subtasks - calculate completion
+  const completedSubtasks = subtasks.filter(
+    (task) => task.status === "done",
+  ).length
+  const progressPercentage = Math.round(
+    (completedSubtasks / subtasks.length) * 100,
+  )
+
+  return {
+    progress: `${progressPercentage}%`,
+    subtasks: `${completedSubtasks}/${subtasks.length}`,
+  }
+}
+
+/**
  * Generate hierarchy summary rows recursively
  * @param tasks All tasks
  * @param changedTaskIds Set of task IDs that had their status changed in this operation
  * @param parentId Parent task ID (undefined for root tasks)
- * @param depth Current depth level
  * @returns Array of hierarchy summary rows
  */
 function generateHierarchySummaryRows(
   tasks: Task[],
   changedTaskIds: Set<string> = new Set<string>(),
   parentId: string | undefined = undefined,
-  depth = 0,
 ): HierarchySummaryRow[] {
   const childTasks = tasks
     .filter((task) => task.parentId === parentId)
@@ -701,20 +732,21 @@ function generateHierarchySummaryRows(
   const rows: HierarchySummaryRow[] = []
 
   for (const task of childTasks) {
-    const indent = "  ".repeat(depth) // 2 spaces per depth level
-
     // Find parent task name
     const parentInfo = task.parentId
       ? tasks.find((t) => t.id === task.parentId)
       : undefined
 
+    // Calculate subtask information
+    const { progress, subtasks } = calculateSubtaskInfo(tasks, task.id)
+
     rows.push({
-      depth,
-      indent,
       name: task.name,
       parent_name: parentInfo?.name,
+      progress,
       status: task.status,
       status_changed: changedTaskIds.has(task.id),
+      subtasks,
       task_id: task.id,
     })
 
@@ -723,7 +755,6 @@ function generateHierarchySummaryRows(
       tasks,
       changedTaskIds,
       task.id,
-      depth + 1,
     )
     rows.push(...childRows)
   }
@@ -741,11 +772,13 @@ function generateHierarchyMarkdownTable(rows: HierarchySummaryRow[]): string {
     return "No tasks found."
   }
 
-  const header = "| Task Structure | Parent Task | Status | Status Changed |"
-  const separator = "|----------------|-------------|--------|----------------|"
+  const header =
+    "| Task Name | Parent Task | Status | Status Changed | Subtasks | Progress |"
+  const separator =
+    "|-----------|-------------|--------|----------------|----------|----------|"
 
   const tableRows = rows.map((row) => {
-    const taskDisplay = `${row.indent}${row.name}`
+    const taskDisplay = row.name // Remove indent to match completeTask table format
     const statusDisplay =
       row.status === "todo"
         ? "📋 todo"
@@ -754,7 +787,7 @@ function generateHierarchyMarkdownTable(rows: HierarchySummaryRow[]): string {
           : "✅ done"
     const parentDisplay = row.parent_name || "-"
     const statusChangedDisplay = row.status_changed ? "✓" : "-"
-    return `| ${taskDisplay} | ${parentDisplay} | ${statusDisplay} | ${statusChangedDisplay} |`
+    return `| ${taskDisplay} | ${parentDisplay} | ${statusDisplay} | ${statusChangedDisplay} | ${row.subtasks} | ${row.progress} |`
   })
 
   return [header, separator, ...tableRows].join("\n")
@@ -772,12 +805,9 @@ function generateHierarchySummary(
 ): HierarchySummary {
   const rows = generateHierarchySummaryRows(tasks, changedTaskIds)
   const table = generateHierarchyMarkdownTable(rows)
-  const total_levels =
-    rows.length > 0 ? Math.max(...rows.map((row) => row.depth)) + 1 : 0
 
   return {
     table,
-    total_levels,
   }
 }
 

@@ -384,3 +384,46 @@
   - ドキュメントとの整合性を検証する
   - エラーや警告の修正を完了する
   - _Requirements: コード品質保証_
+
+- [x] 14. startTaskテーブルフォーマットの修正
+  - startTask実行時に返却されるテーブルフォーマットをcompleteTaskと同じ形式に統一する
+  - _Requirements: 3.4, 3.9_
+
+- [x] 14.1 startTaskテーブルにSubtasks/Progressカラムの追加
+  - HierarchySummaryRowインターフェースにsubtasksとprogressフィールドを追加する
+  - generateHierarchySummaryRows関数を修正し、各タスクのサブタスク数と進捗率を計算する機能を実装する
+  - サブタスクがないタスクには"-"を表示し、あるタスクには"完了済み/総数"形式で表示する
+  - 進捗率はサブタスクがないタスクはステータスに応じて0%または100%、あるタスクは完了率を計算する
+  - _Requirements: 3.4, 3.9_
+
+- [x] 14.2 startTaskテーブルのインデント削除
+  - generateHierarchyMarkdownTable関数を修正し、サブタスクの不要なインデント（"　"）を削除する
+  - タスク名の階層表示方法をcompleteTaskテーブルと同じ形式に統一する
+  - 階層構造を維持しながら、視覚的にクリーンなテーブル表示を実現する
+  - _Requirements: 3.4, 3.9_
+
+- [x] 14.3 テーブル表示形式の完全統一
+  - startTaskとcompleteTaskで出力されるテーブルのカラム順序を統一する
+  - 両関数で同じヘッダー形式（Task Structure, Parent Task, Status, Status Changed, Subtasks, Progress）を使用する
+  - データの表示形式とフォーマットを完全に一致させる
+  - _Requirements: 3.4, 3.9_
+
+- [x] 14.4 修正されたテーブル表示のユニットテスト実装
+  - 新しいSubtasks/Progressカラムの表示内容を検証するテストケースを作成する
+  - インデント削除後のテーブル表示の正確性を確認する
+  - startTaskとcompleteTaskのテーブル出力の完全一致を検証する
+  - 様々な階層構造での新しいテーブル形式の動作を確認する
+  - _Requirements: 3.4, 3.9_
+
+- [x] 14.5 統合テストでのテーブル形式統一の検証
+  - 実際のMCPクライアントを使用してstartTaskとcompleteTaskのテーブル出力を比較する
+  - テーブル形式の一貫性を検証する統合テストを作成する
+  - 大規模な階層構造での新しいテーブル形式の動作を確認する
+  - _Requirements: 3.4, 3.9_
+
+- [x] 14.6 品質チェックと最終検証
+  - `pnpm quality`を実行してコード品質を確認する
+  - 全テストが成功することを確認する
+  - テーブル表示の視覚的品質を手動で確認する
+  - エラーや警告の修正を完了する
+  - _Requirements: コード品質保証_

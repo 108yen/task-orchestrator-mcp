@@ -645,7 +645,7 @@ describe("Task Management", () => {
       expect(startResult.hierarchy_summary).toContain("in_progress")
     })
 
-    it("should generate detailed hierarchy summary with correct indentation", () => {
+    it("should generate detailed hierarchy summary with flat task names (no indentation)", () => {
       // Create 3-level hierarchy
       const parentResult = createTask({ name: "Root Task" })
       const child1Result = createTask({
@@ -667,23 +667,23 @@ describe("Task Management", () => {
       expect(summary).toContain("Level 1 Task")
       expect(summary).toContain("Level 2 Task")
 
-      // Check indentation structure (each level should have proper indentation)
+      // Check that task names are displayed without indentation (like completeTask format)
       const lines = summary.split("\n")
       const taskLines = lines.filter((line) => line.includes("Task"))
 
-      // Root task should have no indentation in table content
+      // Root task should be displayed without indentation
       const rootLine = taskLines.find((line) => line.includes("Root Task"))
       expect(rootLine).toBeDefined()
 
-      // Level 1 should have 2 spaces indentation
+      // Level 1 should be displayed without indentation (Task Structure column contains just the task name)
       const level1Line = taskLines.find((line) => line.includes("Level 1 Task"))
       expect(level1Line).toBeDefined()
-      expect(level1Line).toContain("  Level 1 Task")
+      expect(level1Line).toContain("| Level 1 Task |")
 
-      // Level 2 should have 4 spaces indentation
+      // Level 2 should be displayed without indentation (Task Structure column contains just the task name)
       const level2Line = taskLines.find((line) => line.includes("Level 2 Task"))
       expect(level2Line).toBeDefined()
-      expect(level2Line).toContain("    Level 2 Task")
+      expect(level2Line).toContain("| Level 2 Task |")
     })
 
     it("should show correct status indicators in hierarchy summary", () => {
@@ -1437,7 +1437,7 @@ describe("Task Management", () => {
       // Verify hierarchy summary includes parent names and status changed
       const hierarchy = startResult.hierarchy_summary
       expect(hierarchy).toContain(
-        "| Task Structure | Parent Task | Status | Status Changed |",
+        "| Task Name | Parent Task | Status | Status Changed | Subtasks | Progress |",
       )
 
       // Check that parent names are correctly displayed
@@ -1487,6 +1487,184 @@ describe("Task Management", () => {
       expect(hierarchy).toMatch(/Branch 2.*\| Main Project \|/)
       expect(hierarchy).toMatch(/Leaf 1.*\| Branch 1 \|/)
       expect(hierarchy).toMatch(/Leaf 2.*\| Branch 2 \|/)
+    })
+  })
+
+  describe("Enhanced Table Format Verification", () => {
+    it("should display correct Subtasks and Progress columns in startTask hierarchy summary", () => {
+      // Create parent with 2 subtasks
+      const parentResult = createTask({ name: "Parent Task" })
+      const child1Result = createTask({
+        name: "Child 1",
+        parentId: parentResult.task.id,
+      })
+      createTask({
+        name: "Child 2",
+        parentId: parentResult.task.id,
+      })
+
+      // Complete first child
+      completeTask({
+        id: child1Result.task.id,
+        resolution: "Child 1 completed",
+      })
+
+      // Start parent task
+      const startResult = startTask(parentResult.task.id)
+      const hierarchy = startResult.hierarchy_summary!
+
+      // Verify Subtasks column shows correct counts
+      expect(hierarchy).toMatch(/Parent Task.*\| 1\/2 \|/)
+      expect(hierarchy).toMatch(/Child 1.*\| - \|/)
+      expect(hierarchy).toMatch(/Child 2.*\| - \|/)
+
+      // Verify Progress column shows correct percentages
+      expect(hierarchy).toMatch(/Parent Task.*\| 50% \|/)
+      expect(hierarchy).toMatch(/Child 1.*\| 100% \|/)
+      expect(hierarchy).toMatch(/Child 2.*\| 0% \|/)
+    })
+
+    it("should display correct table headers for both startTask and completeTask", () => {
+      const taskResult = createTask({ name: "Test Task" })
+
+      // Check startTask header
+      const startResult = startTask(taskResult.task.id)
+      const startHeader = startResult.hierarchy_summary!.split("\n")[0]
+      expect(startHeader).toBe(
+        "| Task Name | Parent Task | Status | Status Changed | Subtasks | Progress |",
+      )
+
+      // Complete task and check completeTask header
+      const completeResult = completeTask({
+        id: taskResult.task.id,
+        resolution: "Task completed",
+      })
+      const completeHeader =
+        completeResult.progress_summary!.table.split("\n")[0]
+      expect(completeHeader).toBe(
+        "| Task Name | Parent Task | Status | Status Changed | Subtasks | Progress |",
+      )
+
+      // Verify headers are identical
+      expect(startHeader).toBe(completeHeader)
+    })
+
+    it("should calculate progress correctly for nested hierarchies", () => {
+      // Create 3-level hierarchy
+      const l1Result = createTask({ name: "Level 1" })
+      const l2Result = createTask({
+        name: "Level 2",
+        parentId: l1Result.task.id,
+      })
+      const l3aResult = createTask({
+        name: "Level 3A",
+        parentId: l2Result.task.id,
+      })
+      createTask({ name: "Level 3B", parentId: l2Result.task.id })
+
+      // Complete one leaf task
+      completeTask({ id: l3aResult.task.id, resolution: "3A completed" })
+
+      // Start from root
+      const startResult = startTask(l1Result.task.id)
+      const hierarchy = startResult.hierarchy_summary!
+
+      // Level 1: has 1 subtask (Level 2), but Level 2 is not completed -> Level 1 is 0%
+      // Note: Level 1's progress is based on completed direct children, not on grandchildren
+      expect(hierarchy).toContain(
+        "| Level 1 | - | ⚡ in_progress | ✓ | 0/1 | 0% |",
+      )
+
+      // Level 2: has 2 subtasks, 1 completed -> 50%
+      expect(hierarchy).toContain(
+        "| Level 2 | Level 1 | ⚡ in_progress | ✓ | 1/2 | 50% |",
+      ) // Level 3A: completed -> 100%
+      expect(hierarchy).toContain(
+        "| Level 3A | Level 2 | ✅ done | - | - | 100% |",
+      )
+
+      // Level 3B: not completed -> 0%
+      expect(hierarchy).toContain(
+        "| Level 3B | Level 2 | ⚡ in_progress | ✓ | - | 0% |",
+      )
+    })
+
+    it("should handle tasks with no subtasks correctly", () => {
+      // Create standalone task
+      const taskResult = createTask({ name: "Standalone Task" })
+
+      // Start task
+      const startResult = startTask(taskResult.task.id)
+      const hierarchy = startResult.hierarchy_summary!
+
+      // Should show "-" for subtasks and "0%" for progress (since not completed)
+      expect(hierarchy).toMatch(/Standalone Task.*\| - \|.*\| 0% \|/)
+
+      // Complete task
+      const completeResult = completeTask({
+        id: taskResult.task.id,
+        resolution: "Task completed",
+      })
+      const progressTable = completeResult.progress_summary!.table
+
+      // Should show "-" for subtasks and "100%" for progress (since completed)
+      expect(progressTable).toMatch(/Standalone Task.*\| - \|.*\| 100% \|/)
+    })
+
+    it("should maintain consistent formatting between startTask and completeTask tables", () => {
+      // Create tasks with different names to avoid order conflicts
+      const task1Result = createTask({
+        description: "Test task for format consistency A",
+        name: "Format Test A",
+      })
+      const task2Result = createTask({
+        description: "Test task for format consistency B",
+        name: "Format Test B",
+      })
+
+      // Complete the first task first to avoid order conflicts
+      startTask(task1Result.task.id)
+      completeTask({
+        id: task1Result.task.id,
+        resolution: "Completed first task",
+      })
+
+      // Now start the second task and get its hierarchy table
+      const startResult = startTask(task2Result.task.id)
+      const startTable = startResult.hierarchy_summary!
+
+      // Complete the second task and get its hierarchy table
+      const completeResult = completeTask({
+        id: task2Result.task.id,
+        resolution: "Completed for format test",
+      })
+      const completeTable = completeResult.progress_summary!.table
+
+      // Extract headers from both tables
+      const startHeaders = startTable.split("\n")[0]
+      const completeHeaders = completeTable.split("\n")[0]
+
+      // Headers should be identical
+      expect(startHeaders).toBe(completeHeaders)
+
+      // Both should have the same column structure (6 columns)
+      expect(startHeaders?.split("|")).toHaveLength(8) // 6 columns + 2 empty from start/end
+      expect(completeHeaders?.split("|")).toHaveLength(8) // 6 columns + 2 empty from start/end
+
+      // Both should contain the expected column names
+      expect(startHeaders).toContain("Task Name")
+      expect(startHeaders).toContain("Parent Task")
+      expect(startHeaders).toContain("Status")
+      expect(startHeaders).toContain("Status Changed")
+      expect(startHeaders).toContain("Subtasks")
+      expect(startHeaders).toContain("Progress")
+
+      expect(completeHeaders).toContain("Task Name")
+      expect(completeHeaders).toContain("Parent Task")
+      expect(completeHeaders).toContain("Status")
+      expect(completeHeaders).toContain("Status Changed")
+      expect(completeHeaders).toContain("Subtasks")
+      expect(completeHeaders).toContain("Progress")
     })
   })
 })

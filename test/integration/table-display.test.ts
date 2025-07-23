@@ -228,7 +228,7 @@ describe("Table Display Integration Tests", () => {
 
       // Verify new table format with additional columns
       expect(hierarchySummary).toContain(
-        "| Task Structure | Parent Task | Status | Status Changed |",
+        "| Task Name | Parent Task | Status | Status Changed | Subtasks | Progress |",
       )
 
       // Verify root task shows no parent
@@ -248,7 +248,7 @@ describe("Table Display Integration Tests", () => {
       expect(hierarchySummary).toMatch(/✓/)
     })
 
-    it("should maintain correct indentation with parent name display", async () => {
+    it("should display task names without indentation but with parent names", async () => {
       // Create deep hierarchy: L1 -> L2 -> L3 -> L4
       const level1Result = await client.callTool({
         arguments: { name: "Level 1" },
@@ -291,14 +291,14 @@ describe("Table Display Integration Tests", () => {
       const response = parseMCPResponse(startResult as MCPResponse)
       const hierarchySummary = response.hierarchy_summary
 
-      // Verify indentation is preserved while showing parent names
+      // Verify task names are displayed without indentation (like completeTask format)
       expect(hierarchySummary).toMatch(/\| Level 1 \| - \|/) // No indentation
-      expect(hierarchySummary).toMatch(/\| {3}Level 2 \| Level 1 \|/) // 3 spaces
-      expect(hierarchySummary).toMatch(/\| {5}Level 3 \| Level 2 \|/) // 5 spaces
-      expect(hierarchySummary).toMatch(/\| {7}Level 4 \| Level 3 \|/) // 7 spaces
+      expect(hierarchySummary).toMatch(/\| Level 2 \| Level 1 \|/) // No indentation
+      expect(hierarchySummary).toMatch(/\| Level 3 \| Level 2 \|/) // No indentation
+      expect(hierarchySummary).toMatch(/\| Level 4 \| Level 3 \|/) // No indentation
     })
 
-    it("should handle complex branching hierarchy correctly", async () => {
+    it("should handle complex branching hierarchy with flat task names", async () => {
       // Create branching structure: Main -> (Branch A, Branch B) -> (Leaf A1, Leaf A2, Leaf B1)
       const mainResult = await client.callTool({
         arguments: { name: "Main Branch" },
@@ -367,13 +367,13 @@ describe("Table Display Integration Tests", () => {
       expect(hierarchySummary).toMatch(/Leaf A2.*\| Branch A \|/)
       expect(hierarchySummary).toMatch(/Leaf B1.*\| Branch B \|/)
 
-      // Verify proper indentation levels
+      // Verify task names are displayed without indentation (like completeTask format)
       expect(hierarchySummary).toMatch(/\| Main Branch \| - \|/) // Level 0
-      expect(hierarchySummary).toMatch(/\| {3}Branch A \| Main Branch \|/) // Level 1
-      expect(hierarchySummary).toMatch(/\| {3}Branch B \| Main Branch \|/) // Level 1
-      expect(hierarchySummary).toMatch(/\| {5}Leaf A1 \| Branch A \|/) // Level 2
-      expect(hierarchySummary).toMatch(/\| {5}Leaf A2 \| Branch A \|/) // Level 2
-      expect(hierarchySummary).toMatch(/\| {5}Leaf B1 \| Branch B \|/) // Level 2
+      expect(hierarchySummary).toMatch(/\| Branch A \| Main Branch \|/) // Level 1 - no indentation
+      expect(hierarchySummary).toMatch(/\| Branch B \| Main Branch \|/) // Level 1 - no indentation
+      expect(hierarchySummary).toMatch(/\| Leaf A1 \| Branch A \|/) // Level 2 - no indentation
+      expect(hierarchySummary).toMatch(/\| Leaf A2 \| Branch A \|/) // Level 2 - no indentation
+      expect(hierarchySummary).toMatch(/\| Leaf B1 \| Branch B \|/) // Level 2 - no indentation
     })
   })
 

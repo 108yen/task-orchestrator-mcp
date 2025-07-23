@@ -144,7 +144,7 @@ describe("Workflow Integration Tests", () => {
 
       // Verify hierarchy summary structure
       const hierarchySummary = startResponse.hierarchy_summary
-      expect(hierarchySummary).toContain("Task Structure")
+      expect(hierarchySummary).toContain("Task Name")
       expect(hierarchySummary).toContain("Software Project")
       expect(hierarchySummary).toContain("Design Phase")
       expect(hierarchySummary).toContain("Development Phase")
@@ -157,10 +157,10 @@ describe("Workflow Integration Tests", () => {
       expect(hierarchySummary).toContain("⚡ in_progress") // for started tasks
       expect(hierarchySummary).toContain("📋 todo") // for pending tasks
 
-      // Verify proper indentation for hierarchy levels
-      expect(hierarchySummary).toContain("  Design Phase") // 2 spaces for level 1
-      expect(hierarchySummary).toContain("    UI Mockups") // 4 spaces for level 2
-      expect(hierarchySummary).toContain("    Frontend Code") // 4 spaces for level 2
+      // Verify tasks appear in the hierarchy (new flat format without indentation)
+      expect(hierarchySummary).toContain("Design Phase") // Flat format
+      expect(hierarchySummary).toContain("UI Mockups") // Flat format
+      expect(hierarchySummary).toContain("Frontend Code") // Flat format
     })
   })
 
