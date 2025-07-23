@@ -52,7 +52,7 @@ describe("Basic CRUD Operations Integration Tests", () => {
       const result = (await client.callTool({
         arguments: {
           description: "child description",
-          insertIndex: 5,
+          insertIndex: 0, // Changed from 5 to 0 since parent has no existing children
           name: "child task",
           parentId: parentTask.id,
         },

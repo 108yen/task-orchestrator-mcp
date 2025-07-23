@@ -145,3 +145,25 @@ export function writeTasks(tasks: Task[]): void {
     memoryTasks = [...tasks]
   }
 }
+
+/**
+ * Clear all tasks from storage (for testing purposes)
+ */
+export function clearTasks(): void {
+  const filePath = process.env.FILE_PATH
+
+  if (filePath) {
+    // File-based storage mode
+    try {
+      if (existsSync(filePath)) {
+        writeFileSync(filePath, JSON.stringify([]), "utf-8")
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("Error clearing tasks file:", error)
+    }
+  } else {
+    // In-memory storage mode
+    memoryTasks = []
+  }
+}

@@ -70,10 +70,10 @@ describe("Hierarchy Management Integration Tests", () => {
       // Create parent task
       const parentTask = await createTestTask("parent task")
 
-      // Create ordered child tasks
-      const task1 = await createTestTask("task 1", parentTask.id, undefined, 1)
-      const task3 = await createTestTask("task 3", parentTask.id, undefined, 3)
-      const task2 = await createTestTask("task 2", parentTask.id, undefined, 2)
+      // Create ordered child tasks in proper sequence
+      const task1 = await createTestTask("task 1", parentTask.id, undefined, 0)
+      const task2 = await createTestTask("task 2", parentTask.id, undefined, 1)
+      const task3 = await createTestTask("task 3", parentTask.id, undefined, 2)
 
       // Complete task 1, should get task 2 as next
       const complete1Result = (await client.callTool({

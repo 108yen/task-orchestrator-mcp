@@ -111,7 +111,7 @@ describe("Error Handling Tests", () => {
       it("should throw error for non-existent parentId", () => {
         expect(() =>
           createTask({ name: "Test", parentId: "non-existent-id" }),
-        ).toThrow("Parent task with id 'non-existent-id' does not exist")
+        ).toThrow("Parent task with id 'non-existent-id' not found")
       })
     })
 

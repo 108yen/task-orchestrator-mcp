@@ -7,8 +7,8 @@ describe("Execution Order Validation - Integration Tests", () => {
     await setupMCPConnection()
   })
 
-  beforeEach(async () => {
-    await clearAllTasks()
+  beforeEach(() => {
+    clearAllTasks()
   })
 
   describe("Basic Execution Order Validation", () => {

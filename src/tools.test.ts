@@ -55,12 +55,12 @@ describe("registerTools", () => {
     expect(createTaskCall[0]).toBe("createTask")
     expect(createTaskCall[1]).toMatchObject({
       description: expect.stringContaining(
-        "Create a new task with optional parent and ordering",
+        "Create a new task with optional parent and index positioning",
       ),
       inputSchema: expect.objectContaining({
         description: expect.any(Object),
+        insertIndex: expect.any(Object),
         name: expect.any(Object),
-        order: expect.any(Object),
         parentId: expect.any(Object),
       }),
     })
@@ -95,7 +95,9 @@ describe("registerTools", () => {
     expect(listTasksCall).toBeDefined()
     expect(listTasksCall[0]).toBe("listTasks")
     expect(listTasksCall[1]).toMatchObject({
-      description: "List tasks, optionally filtered by parentId",
+      description: expect.stringContaining(
+        "List tasks from hierarchical structure, optionally filtered by parentId",
+      ),
       inputSchema: expect.objectContaining({
         parentId: expect.any(Object),
       }),
@@ -118,8 +120,6 @@ describe("registerTools", () => {
         description: expect.any(Object),
         id: expect.any(Object),
         name: expect.any(Object),
-        order: expect.any(Object),
-        parentId: expect.any(Object),
         resolution: expect.any(Object),
         status: expect.any(Object),
       }),

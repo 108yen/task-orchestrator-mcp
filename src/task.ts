@@ -1176,6 +1176,7 @@ function validateExecutionOrder(taskToStart: Task, allTasks: Task[]): void {
         incompletePrecedingTasks,
         taskIndex,
         parentTask,
+        allTasks,
       ),
     )
   }
@@ -1194,6 +1195,7 @@ function generateExecutionOrderErrorMessage(
   incompletePrecedingTasks: Task[],
   taskIndex: number,
   parentTask: null | Task | undefined,
+  allTasks: Task[],
 ): string {
   // Get parent context info
   const parentInfo = parentTask
@@ -1202,27 +1204,37 @@ function generateExecutionOrderErrorMessage(
 
   // Generate summary line with position information
   const taskPositions = incompletePrecedingTasks
-    .map(
-      (task, index) =>
-        `"${task.name}" (position: ${index}, status: ${task.status})`,
-    )
+    .map((task) => {
+      // Find the actual position of this task in its siblings array
+      const parentTask = findParentTask(allTasks, task.id)
+      const siblingTasks = parentTask ? parentTask.tasks : allTasks
+      const actualPosition = siblingTasks.findIndex(
+        (t: Task) => t.id === task.id,
+      )
+      return `"${task.name}" (position: ${actualPosition + 1}, status: ${task.status})`
+    })
     .join(", ")
 
   // Generate markdown table for incomplete tasks
   const tableHeader =
-    "| Position | Task Name | Status | Description |\n|----------|-----------|--------|-------------|"
+    "| Order | Task Name | Status | Description |\n|-------|-----------|--------|-------------|"
   const tableRows = incompletePrecedingTasks
-    .map(
-      (task, index) =>
-        `| ${index} | ${task.name} | ${task.status} | ${task.description || "No description"} |`,
-    )
+    .map((task) => {
+      // Find the actual position of this task in its siblings array
+      const parentTask = findParentTask(allTasks, task.id)
+      const siblingTasks = parentTask ? parentTask.tasks : allTasks
+      const actualPosition = siblingTasks.findIndex(
+        (t: Task) => t.id === task.id,
+      )
+      return `| ${actualPosition + 1} | ${task.name} | ${task.status} | ${task.description || "No description"} |`
+    })
     .join("\n")
 
   const incompleteTasksTable = `${tableHeader}\n${tableRows}`
 
   const errorMessage =
-    `Cannot start task "${taskToStart.name}" (position: ${taskIndex})${parentInfo}. ` +
-    `The following ${incompletePrecedingTasks.length} task(s) at earlier positions must be completed first: ${taskPositions}.\n\n` +
+    `Execution order violation: Cannot start task "${taskToStart.name}" (position: ${taskIndex})${parentInfo}. ` +
+    `The following ${incompletePrecedingTasks.length} task(s) with smaller order values must be completed first: ${taskPositions}.\n\n` +
     `Incomplete preceding tasks:\n${incompleteTasksTable}\n\n` +
     `Please complete these tasks in order before starting the requested task.`
 
