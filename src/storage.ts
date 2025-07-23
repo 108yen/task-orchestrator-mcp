@@ -16,8 +16,10 @@ export interface HierarchySummaryRow {
   indent: string // 階層表示用のインデント文字列
   name: string // タスク名
   parent_name?: string // 親タスクの名前（トップレベルタスクの場合はundefined）
+  progress: string // 進捗率（例: "20%", "100%", "-"）
   status: string // ステータス
   status_changed: boolean // その操作でステータスが変更されたかどうか
+  subtasks: string // サブタスク情報（例: "2/5", "-"）
   task_id: string // タスクID
 }
 

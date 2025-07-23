@@ -139,7 +139,7 @@ describe("Hierarchy Management Integration Tests", () => {
       ])
 
       // Verify hierarchy summary is generated
-      expect(startResponse.hierarchy_summary).toContain("Task Structure")
+      expect(startResponse.hierarchy_summary).toContain("Task Name")
       expect(startResponse.hierarchy_summary).toContain("Root Task")
       expect(startResponse.hierarchy_summary).toContain("Level 3 Task")
 
