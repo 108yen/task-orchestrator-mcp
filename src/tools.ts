@@ -21,7 +21,7 @@ export function registerTools(): void {
       description:
         "Create a new task with optional parent and ordering.\n\n" +
         "This tool initiates a new workflow for handling user requests. The workflow is as follows:\n" +
-        "1. Create a task with the provided name and optional description. It is structured as a root task and subtasks to achieve it.\n" +
+        "1. Create tasks with the provided name and optional description. It is structured as a root task and subtasks to achieve it. Subtasks can be created by specifying parentId.\n" +
         "2. After task creation, you MUST call the `startTask` tool to begin processing the task.\n" +
         "3. When the task is completed, call the `completeTask` tool with the task ID and resolution details.\n" +
         "4. If the following task is assigned, execute it by calling the `startTask` tool again.\n" +
