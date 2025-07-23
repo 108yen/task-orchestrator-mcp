@@ -5,15 +5,12 @@ import { existsSync, readFileSync, writeFileSync } from "fs"
  */
 export interface HierarchySummary {
   table: string // マークダウン形式の階層テーブル文字列
-  total_levels: number // 階層の深さ
 }
 
 /**
  * Hierarchy summary row interface for task structure display
  */
 export interface HierarchySummaryRow {
-  depth: number // ネストレベル（0が最上位）
-  indent: string // 階層表示用のインデント文字列
   name: string // タスク名
   parent_name?: string // 親タスクの名前（トップレベルタスクの場合はundefined）
   progress: string // 進捗率（例: "20%", "100%", "-"）

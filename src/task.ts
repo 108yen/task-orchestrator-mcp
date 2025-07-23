@@ -718,14 +718,12 @@ function calculateSubtaskInfo(
  * @param tasks All tasks
  * @param changedTaskIds Set of task IDs that had their status changed in this operation
  * @param parentId Parent task ID (undefined for root tasks)
- * @param depth Current depth level
  * @returns Array of hierarchy summary rows
  */
 function generateHierarchySummaryRows(
   tasks: Task[],
   changedTaskIds: Set<string> = new Set<string>(),
   parentId: string | undefined = undefined,
-  depth = 0,
 ): HierarchySummaryRow[] {
   const childTasks = tasks
     .filter((task) => task.parentId === parentId)
@@ -734,8 +732,6 @@ function generateHierarchySummaryRows(
   const rows: HierarchySummaryRow[] = []
 
   for (const task of childTasks) {
-    const indent = "  ".repeat(depth) // 2 spaces per depth level
-
     // Find parent task name
     const parentInfo = task.parentId
       ? tasks.find((t) => t.id === task.parentId)
@@ -745,8 +741,6 @@ function generateHierarchySummaryRows(
     const { progress, subtasks } = calculateSubtaskInfo(tasks, task.id)
 
     rows.push({
-      depth,
-      indent,
       name: task.name,
       parent_name: parentInfo?.name,
       progress,
@@ -761,7 +755,6 @@ function generateHierarchySummaryRows(
       tasks,
       changedTaskIds,
       task.id,
-      depth + 1,
     )
     rows.push(...childRows)
   }
@@ -812,12 +805,9 @@ function generateHierarchySummary(
 ): HierarchySummary {
   const rows = generateHierarchySummaryRows(tasks, changedTaskIds)
   const table = generateHierarchyMarkdownTable(rows)
-  const total_levels =
-    rows.length > 0 ? Math.max(...rows.map((row) => row.depth)) + 1 : 0
 
   return {
     table,
-    total_levels,
   }
 }
 
