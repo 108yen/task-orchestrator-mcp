@@ -72,14 +72,14 @@ export async function createTestTask(
   name: string,
   parentId?: string,
   description?: string,
-  order?: number,
+  insertIndex?: number,
 ) {
   const result = (await client.callTool({
     arguments: {
       name,
       ...(description && { description }),
       ...(parentId && { parentId: parentId }),
-      ...(order && { order }),
+      ...(insertIndex !== undefined && { insertIndex }),
     },
     name: "createTask",
   })) as MCPResponse

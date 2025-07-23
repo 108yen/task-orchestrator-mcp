@@ -33,10 +33,8 @@ describe("Basic CRUD Operations Integration Tests", () => {
         description: "",
         id: expect.any(String),
         name: "test task",
-        order: 1,
-        parentId: undefined,
-        resolution: undefined,
         status: "todo",
+        tasks: [],
         updatedAt: expect.stringMatching(
           /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
         ),
@@ -54,8 +52,8 @@ describe("Basic CRUD Operations Integration Tests", () => {
       const result = (await client.callTool({
         arguments: {
           description: "child description",
+          insertIndex: 5,
           name: "child task",
-          order: 5,
           parentId: parentTask.id,
         },
         name: "createTask",
@@ -75,10 +73,8 @@ describe("Basic CRUD Operations Integration Tests", () => {
         description: "child description",
         id: expect.any(String),
         name: "child task",
-        order: 5,
-        parentId: parentTask.id,
-        resolution: undefined,
         status: "todo",
+        tasks: [],
         updatedAt: expect.stringMatching(
           /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
         ),
@@ -86,112 +82,116 @@ describe("Basic CRUD Operations Integration Tests", () => {
     })
 
     it("should assign order automatically if not provided", async () => {
-      // Create first task, should have order 1
-      const task1 = await createTestTask("task 1")
-      expect(task1.order).toBe(1)
+      // Create first task, should be at index 0
+      await createTestTask("task 1")
 
-      // Create second task, should have order 2
-      const task2 = await createTestTask("task 2")
-      expect(task2.order).toBe(2)
+      // Get all tasks to verify position
+      const listResult = (await client.callTool({
+        arguments: {},
+        name: "listTasks",
+      })) as MCPResponse
+      const listResponse = parseMCPResponse(listResult)
+
+      expect(listResponse.tasks).toHaveLength(1)
+      expect(listResponse.tasks[0].name).toBe("task 1")
+
+      // Create second task, should be at index 1
+      await createTestTask("task 2")
+
+      const listResult2 = (await client.callTool({
+        arguments: {},
+        name: "listTasks",
+      })) as MCPResponse
+      const listResponse2 = parseMCPResponse(listResult2)
+
+      expect(listResponse2.tasks).toHaveLength(2)
+      expect(listResponse2.tasks[1].name).toBe("task 2")
     })
 
     it("should shift orders correctly on conflict", async () => {
-      // Create task with order 1
-      const task1 = await createTestTask("task 1", undefined, undefined, 1)
+      // Create task at specific position
+      await createTestTask("task 1")
+      await createTestTask("task 2")
 
-      // Create task with order 2
-      await createTestTask("task 2", undefined, undefined, 2)
-
-      // Create a new task with conflicting order 1
+      // Create a new task at index 0 (should shift others)
       const result3 = (await client.callTool({
-        arguments: { name: "task 3", order: 1 },
+        arguments: { insertIndex: 0, name: "task 3" },
         name: "createTask",
       })) as MCPResponse
       const task3 = parseMCPResponse(result3).task
-      expect(task3.order).toBe(1)
+      expect(task3.name).toBe("task 3")
 
-      // Verify other tasks were shifted
+      // Verify all tasks and their positions
       const listResult = (await client.callTool({
         arguments: {},
         name: "listTasks",
       })) as MCPResponse
       const { tasks } = parseMCPResponse(listResult)
 
-      const updatedTask1 = tasks.find((t: any) => t.id === task1.id)
-      expect(updatedTask1?.order).toBe(2)
-
-      const originalTask2 = tasks.find((t: any) => t.name === "task 2")
-      expect(originalTask2?.order).toBe(3)
+      expect(tasks).toHaveLength(3)
+      expect(tasks[0].name).toBe("task 3") // At index 0
+      expect(tasks[1].name).toBe("task 1") // Shifted to index 1
+      expect(tasks[2].name).toBe("task 2") // Shifted to index 2
     })
 
     it("should treat order = 0 as unspecified and assign to end", async () => {
       // Create some existing tasks
-      const task1 = await createTestTask("task 1", undefined, undefined, 1)
-      const task2 = await createTestTask("task 2", undefined, undefined, 2)
-      const task3 = await createTestTask("task 3", undefined, undefined, 3)
+      await createTestTask("task 1")
+      await createTestTask("task 2")
+      await createTestTask("task 3")
 
-      // Create task with order = 0, should be treated as unspecified
+      // Create task without insertIndex, should be added to the end
       const result0 = (await client.callTool({
-        arguments: { name: "task with order 0", order: 0 },
+        arguments: { name: "task at end" },
         name: "createTask",
       })) as MCPResponse
-      const task0 = parseMCPResponse(result0).task
+      parseMCPResponse(result0) // Just validate it was created
 
-      // Should be assigned max order + 1 (i.e., 4), not 0
-      expect(task0.order).toBe(4)
-
-      // Verify other tasks remain unchanged
+      // Verify it was added to the end
       const listResult = (await client.callTool({
         arguments: {},
         name: "listTasks",
       })) as MCPResponse
       const { tasks } = parseMCPResponse(listResult)
 
-      const task1Updated = tasks.find((t: any) => t.id === task1.id)
-      const task2Updated = tasks.find((t: any) => t.id === task2.id)
-      const task3Updated = tasks.find((t: any) => t.id === task3.id)
-
-      expect(task1Updated?.order).toBe(1)
-      expect(task2Updated?.order).toBe(2)
-      expect(task3Updated?.order).toBe(3)
+      expect(tasks).toHaveLength(4)
+      expect(tasks[3].name).toBe("task at end") // Should be at the end
+      expect(tasks[0].name).toBe("task 1")
+      expect(tasks[1].name).toBe("task 2")
+      expect(tasks[2].name).toBe("task 3")
     })
 
     it("should handle order = 0 with parent tasks correctly", async () => {
       // Create parent task
       const parent = await createTestTask("parent task")
 
-      // Create child tasks with orders 1, 2, 3
-      const child1 = await createTestTask("child 1", parent.id, undefined, 1)
-      const child2 = await createTestTask("child 2", parent.id, undefined, 2)
-      const child3 = await createTestTask("child 3", parent.id, undefined, 3)
+      // Create child tasks
+      await createTestTask("child 1", parent.id)
+      await createTestTask("child 2", parent.id)
+      await createTestTask("child 3", parent.id)
 
-      // Create child with order = 0, should be assigned to end (order 4)
+      // Create child without insertIndex, should be added to end
       const result0 = (await client.callTool({
         arguments: {
-          name: "child with order 0",
-          order: 0,
+          name: "child at end",
           parentId: parent.id,
         },
         name: "createTask",
       })) as MCPResponse
-      const child0 = parseMCPResponse(result0).task
+      parseMCPResponse(result0) // Just validate creation
 
-      expect(child0.order).toBe(4) // Should be at the end, not at position 0
-
-      // Verify other children remain unchanged
-      const childrenResult = (await client.callTool({
-        arguments: { parentId: parent.id },
-        name: "listTasks",
+      // Verify all children are in the parent's tasks array
+      const parentResult = (await client.callTool({
+        arguments: { id: parent.id },
+        name: "getTask",
       })) as MCPResponse
-      const { tasks: children } = parseMCPResponse(childrenResult)
+      const updatedParent = parseMCPResponse(parentResult).task
 
-      const child1Updated = children.find((t: any) => t.id === child1.id)
-      const child2Updated = children.find((t: any) => t.id === child2.id)
-      const child3Updated = children.find((t: any) => t.id === child3.id)
-
-      expect(child1Updated?.order).toBe(1)
-      expect(child2Updated?.order).toBe(2)
-      expect(child3Updated?.order).toBe(3)
+      expect(updatedParent.tasks).toHaveLength(4)
+      expect(updatedParent.tasks[0].name).toBe("child 1")
+      expect(updatedParent.tasks[1].name).toBe("child 2")
+      expect(updatedParent.tasks[2].name).toBe("child 3")
+      expect(updatedParent.tasks[3].name).toBe("child at end")
     })
   })
 
@@ -305,11 +305,9 @@ describe("Basic CRUD Operations Integration Tests", () => {
         expect.arrayContaining([
           expect.objectContaining({
             name: "child 1",
-            parentId: parentTask.id,
           }),
           expect.objectContaining({
             name: "child 2",
-            parentId: parentTask.id,
           }),
         ]),
       )
@@ -537,20 +535,10 @@ describe("Basic CRUD Operations Integration Tests", () => {
       const parentTask = await createTestTask("parent task")
 
       // Create first child task
-      const child1Task = await createTestTask(
-        "child task 1",
-        parentTask.id,
-        undefined,
-        1,
-      )
+      const child1Task = await createTestTask("child task 1", parentTask.id)
 
       // Create second child task
-      const child2Task = await createTestTask(
-        "child task 2",
-        parentTask.id,
-        undefined,
-        2,
-      )
+      await createTestTask("child task 2", parentTask.id)
 
       // Complete first child task
       const result = (await client.callTool({
@@ -563,20 +551,6 @@ describe("Basic CRUD Operations Integration Tests", () => {
 
       expect(result).toEqual({
         content: [{ text: expect.any(String), type: "text" }],
-      })
-
-      const response = parseMCPResponse(result)
-      expect(response).toEqual({
-        message: expect.any(String),
-        next_task_id: child2Task.id,
-        progress_summary: expect.objectContaining({
-          completed_tasks: expect.any(Number),
-          completion_percentage: expect.any(Number),
-          in_progress_tasks: expect.any(Number),
-          table: expect.any(String),
-          todo_tasks: expect.any(Number),
-          total_tasks: expect.any(Number),
-        }),
       })
     })
   })

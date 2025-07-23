@@ -18,9 +18,8 @@ describe("Storage", () => {
     description: "Test Description",
     id: "test-id-1",
     name: "Test Task",
-    order: 1,
-    parentId: undefined,
     status: "todo",
+    tasks: [], // New nested structure
     updatedAt: new Date("2024-01-01T00:00:00.000Z"),
   }
 
@@ -29,10 +28,9 @@ describe("Storage", () => {
     description: "Completed Description",
     id: "test-id-2",
     name: "Completed Task",
-    order: 2,
-    parentId: "test-id-1",
     resolution: "Task completed successfully",
     status: "done",
+    tasks: [], // New nested structure
     updatedAt: new Date("2024-01-01T01:00:00.000Z"),
   }
 
