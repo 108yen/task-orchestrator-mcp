@@ -234,6 +234,12 @@ describe("Workflow Integration Tests", () => {
       expect(completeReqResponse.message).toContain("Planning")
       expect(completeReqResponse.next_task_id).toBeDefined()
 
+      // Start prototyping
+      await client.callTool({
+        arguments: { id: prototypingTask.id },
+        name: "startTask",
+      })
+
       // Complete prototyping
       await client.callTool({
         arguments: {
@@ -241,6 +247,12 @@ describe("Workflow Integration Tests", () => {
           resolution: "Prototyping completed",
         },
         name: "completeTask",
+      })
+
+      // Start prototype
+      await client.callTool({
+        arguments: { id: prototypeTask.id },
+        name: "startTask",
       })
 
       // Complete prototype - should auto-complete design phase
@@ -260,24 +272,42 @@ describe("Workflow Integration Tests", () => {
       // Next task should be in development phase
       expect(completePrototypeResponse.next_task_id).toBe(developmentTask.id)
 
-      // Verify final project state
+      // Verify final project state - collect all tasks recursively
       const listResult = (await client.callTool({
         arguments: {},
         name: "listTasks",
       })) as MCPResponse
       const listResponse = parseMCPResponse(listResult)
 
-      const completedTasks = listResponse.tasks.filter(
-        (t: any) => t.status === "done",
-      )
+      // Collect all tasks from all levels
+      const allTasks: any[] = []
+
+      const collectTasksFromLevel = async (tasks: any[]) => {
+        for (const task of tasks) {
+          allTasks.push(task)
+          if (task.id) {
+            // Get children of this task
+            const childResult = (await client.callTool({
+              arguments: { parentId: task.id },
+              name: "listTasks",
+            })) as MCPResponse
+            const childResponse = parseMCPResponse(childResult)
+            if (childResponse.tasks?.length > 0) {
+              await collectTasksFromLevel(childResponse.tasks)
+            }
+          }
+        }
+      }
+
+      await collectTasksFromLevel(listResponse.tasks)
+
+      const completedTasks = allTasks.filter((t: any) => t.status === "done")
       expect(completedTasks.length).toBeGreaterThanOrEqual(5) // requirements, planning, prototyping, implementation, design
 
-      const todoTasks = listResponse.tasks.filter(
-        (t: any) => t.status === "todo",
-      )
+      const todoTasks = allTasks.filter((t: any) => t.status === "todo")
       expect(todoTasks.length).toBeGreaterThanOrEqual(1) // development phase
 
-      const inProgressTasks = listResponse.tasks.filter(
+      const inProgressTasks = allTasks.filter(
         (t: any) => t.status === "in_progress",
       )
       expect(inProgressTasks.length).toBeLessThanOrEqual(1) // possibly development task if it was started
