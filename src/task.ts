@@ -1145,12 +1145,27 @@ function findNextTask(tasks: Task[], completedTask: Task): Task | undefined {
 
 /**
  * Validate execution order for starting a task
- * Checks if all sibling tasks with smaller order values are completed
+ * Checks if all preceding sibling tasks in the array are completed
+ * Also validates that all preceding sibling tasks of parent tasks are completed
  * @param taskToStart Task that is being started
  * @param allTasks All tasks in the system
  * @throws Error if execution order is violated
  */
 function validateExecutionOrder(taskToStart: Task, allTasks: Task[]): void {
+  // First check direct sibling order
+  validateDirectSiblingOrder(taskToStart, allTasks)
+
+  // Then check parent hierarchy order
+  validateParentHierarchyOrder(taskToStart, allTasks)
+}
+
+/**
+ * Validate order among direct sibling tasks
+ * @param taskToStart Task that is being started
+ * @param allTasks All tasks in the system
+ * @throws Error if execution order is violated
+ */
+function validateDirectSiblingOrder(taskToStart: Task, allTasks: Task[]): void {
   // Find the parent task or use root tasks array
   const parentTask = findParentTask(allTasks, taskToStart.id)
   const siblingTasks = parentTask ? parentTask.tasks : allTasks
@@ -1176,6 +1191,59 @@ function validateExecutionOrder(taskToStart: Task, allTasks: Task[]): void {
         incompletePrecedingTasks,
         taskIndex,
         parentTask,
+        allTasks,
+      ),
+    )
+  }
+}
+
+/**
+ * Validate order within parent hierarchy
+ * Checks if all preceding sibling tasks of the direct parent are completed
+ * @param taskToStart Task that is being started
+ * @param allTasks All tasks in the system
+ * @throws Error if execution order is violated
+ */
+function validateParentHierarchyOrder(
+  taskToStart: Task,
+  allTasks: Task[],
+): void {
+  // Find the direct parent task
+  const parentTask = findParentTask(allTasks, taskToStart.id)
+
+  // If no parent (root level task), no hierarchy order to check
+  if (!parentTask) {
+    return
+  }
+
+  // Find the grandparent of current task (parent of parentTask)
+  const grandParentTask = findParentTask(allTasks, parentTask.id)
+  const parentSiblingTasks = grandParentTask ? grandParentTask.tasks : allTasks
+
+  // Find the index of the parent task within its siblings
+  const parentIndex = parentSiblingTasks.findIndex(
+    (task) => task.id === parentTask.id,
+  )
+
+  if (parentIndex === -1) {
+    throw new Error(
+      `Parent task "${parentTask.name}" not found in grandparent tasks array`,
+    )
+  }
+
+  // Check all tasks before the parent in the array
+  const incompletePrecedingParentTasks = parentSiblingTasks
+    .slice(0, parentIndex)
+    .filter((task) => task.status !== "done")
+
+  if (incompletePrecedingParentTasks.length > 0) {
+    throw new Error(
+      generateParentHierarchyErrorMessage(
+        taskToStart,
+        parentTask,
+        incompletePrecedingParentTasks,
+        parentIndex,
+        grandParentTask,
         allTasks,
       ),
     )
@@ -1234,9 +1302,71 @@ function generateExecutionOrderErrorMessage(
 
   const errorMessage =
     `Execution order violation: Cannot start task "${taskToStart.name}" (position: ${taskIndex})${parentInfo}. ` +
-    `The following ${incompletePrecedingTasks.length} task(s) with smaller order values must be completed first: ${taskPositions}.\n\n` +
+    `The following ${incompletePrecedingTasks.length} task(s) in earlier positions must be completed first: ${taskPositions}.\n\n` +
     `Incomplete preceding tasks:\n${incompleteTasksTable}\n\n` +
     `Please complete these tasks in order before starting the requested task.`
+
+  return errorMessage
+}
+
+/**
+ * Generate detailed error message for parent hierarchy execution order violations
+ * @param taskToStart Task that is being started
+ * @param parentTask Parent task of taskToStart
+ * @param incompletePrecedingParentTasks Parent's sibling tasks that must be completed first
+ * @param parentIndex Index position of the parent task
+ * @param grandParentTask Grandparent task (null if parent is at root level)
+ * @param allTasks All tasks in the system
+ * @returns Detailed error message with task information table
+ */
+function generateParentHierarchyErrorMessage(
+  taskToStart: Task,
+  parentTask: Task,
+  incompletePrecedingParentTasks: Task[],
+  parentIndex: number,
+  grandParentTask: null | Task | undefined,
+  allTasks: Task[],
+): string {
+  // Get grandparent context info
+  const grandParentInfo = grandParentTask
+    ? ` within grandparent task "${grandParentTask.name}"`
+    : ` at the root level`
+
+  // Generate summary line with position information
+  const parentTaskPositions = incompletePrecedingParentTasks
+    .map((task) => {
+      // Find the actual position of this task in its siblings array
+      const parentOfTask = findParentTask(allTasks, task.id)
+      const siblingTasks = parentOfTask ? parentOfTask.tasks : allTasks
+      const actualPosition = siblingTasks.findIndex(
+        (t: Task) => t.id === task.id,
+      )
+      return `"${task.name}" (position: ${actualPosition + 1}, status: ${task.status})`
+    })
+    .join(", ")
+
+  // Generate markdown table for incomplete parent tasks
+  const tableHeader =
+    "| Order | Task Name | Status | Description |\n|-------|-----------|--------|-------------|"
+  const tableRows = incompletePrecedingParentTasks
+    .map((task) => {
+      // Find the actual position of this task in its siblings array
+      const parentOfTask = findParentTask(allTasks, task.id)
+      const siblingTasks = parentOfTask ? parentOfTask.tasks : allTasks
+      const actualPosition = siblingTasks.findIndex(
+        (t: Task) => t.id === task.id,
+      )
+      return `| ${actualPosition + 1} | ${task.name} | ${task.status} | ${task.description || "No description"} |`
+    })
+    .join("\n")
+
+  const incompleteParentTasksTable = `${tableHeader}\n${tableRows}`
+
+  const errorMessage =
+    `Hierarchy order violation: Cannot start task "${taskToStart.name}" because its parent task "${parentTask.name}" (position: ${parentIndex + 1})${grandParentInfo} has preceding sibling tasks that are not completed. ` +
+    `The following ${incompletePrecedingParentTasks.length} parent sibling task(s) must be completed first: ${parentTaskPositions}.\n\n` +
+    `Incomplete preceding parent sibling tasks:\n${incompleteParentTasksTable}\n\n` +
+    `Please complete these parent tasks in order before starting subtasks of "${parentTask.name}".`
 
   return errorMessage
 }

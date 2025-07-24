@@ -1239,12 +1239,13 @@ describe("Task Management", () => {
       expect(parentEntries).toHaveLength(1)
     })
 
-    it("should maintain parent status consistency across multiple operations", () => {
+    it("should maintain parent status consistency with execution order validation", () => {
       // Create complex hierarchy
       const root = createTask({ name: "Root" })
       const branch1 = createTask({ name: "Branch 1", parentId: root.task.id })
       const branch2 = createTask({ name: "Branch 2", parentId: root.task.id })
       const leaf1 = createTask({ name: "Leaf 1", parentId: branch1.task.id })
+      const leaf1b = createTask({ name: "Leaf 1b", parentId: branch1.task.id })
       const leaf2 = createTask({ name: "Leaf 2", parentId: branch2.task.id })
 
       // Start first leaf
@@ -1256,7 +1257,17 @@ describe("Task Management", () => {
       expect(branch1After1.status).toBe("in_progress")
       expect(branch2After1.status).toBe("todo")
 
-      // Start second leaf (should reset first)
+      // Should NOT be able to start second leaf because Branch 1 is not completed
+      expect(() => startTask(leaf2.task.id)).toThrow(
+        "Hierarchy order violation",
+      )
+
+      // Complete Branch 1 (need to complete all its children first)
+      completeTask({ id: leaf1.task.id, resolution: "Leaf 1 completed" })
+      completeTask({ id: leaf1b.task.id, resolution: "Leaf 1b completed" })
+      // Branch 1 should auto-complete when all children are done
+
+      // Now should be able to start second leaf
       startTask(leaf2.task.id)
       const rootAfter2 = getTask(root.task.id)
       const branch1After2 = getTask(branch1.task.id)
@@ -1264,9 +1275,9 @@ describe("Task Management", () => {
       const leaf1After2 = getTask(leaf1.task.id)
       const leaf2After2 = getTask(leaf2.task.id)
       expect(rootAfter2.status).toBe("in_progress")
-      expect(branch1After2.status).toBe("todo")
+      expect(branch1After2.status).toBe("done")
       expect(branch2After2.status).toBe("in_progress")
-      expect(leaf1After2.status).toBe("todo")
+      expect(leaf1After2.status).toBe("done")
       expect(leaf2After2.status).toBe("in_progress")
     })
   })
