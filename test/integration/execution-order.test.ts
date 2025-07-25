@@ -472,7 +472,7 @@ describe("Execution Order Validation - Integration Tests", () => {
         "| 2 | API Development | todo | Build REST API endpoints |",
       )
       expect(errorMessage).toContain(
-        "The following 2 task(s) in earlier positions must be completed first",
+        "The following 2 task(s) in preceding positions must be completed first",
       )
       expect(errorMessage).toContain("Please complete these tasks in order")
     })

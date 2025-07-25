@@ -1,4 +1,5 @@
 import { z } from "zod"
+import type { TaskInput } from "./task.js"
 import { server } from "./server.js"
 import {
   completeTask,
@@ -14,6 +15,15 @@ import {
  * Register all task management tools with the MCP server
  */
 export function registerTools(): void {
+  // Define recursive TaskInput schema
+  const TaskInputSchema: z.ZodType<TaskInput> = z.lazy(() =>
+    z.object({
+      description: z.string().optional(),
+      name: z.string(),
+      tasks: z.array(TaskInputSchema).optional(),
+    }),
+  )
+
   // Register createTask tool
   server.registerTool(
     "createTask",
@@ -43,6 +53,10 @@ export function registerTools(): void {
           .string()
           .describe("Parent task ID for hierarchical organization (optional)")
           .optional(),
+        tasks: z
+          .array(TaskInputSchema)
+          .describe("Array of subtasks to create simultaneously (optional)")
+          .optional(),
       },
     },
     (args) => {
@@ -53,6 +67,7 @@ export function registerTools(): void {
             insertIndex?: number
             name: string
             parentId?: string
+            tasks?: TaskInput[]
           },
         )
         return {

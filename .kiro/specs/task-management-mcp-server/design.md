@@ -76,15 +76,15 @@ interface HierarchySummaryRow {
 
 ### MCPツールインターフェース
 
-| 機能           | ツール名       | 入力パラメータ                                                                    | 出力                                                                                                              |
-| :------------- | :------------- | :-------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------- |
-| **タスク作成** | `createTask`   | `{ name: string, description?: string, parentId?: string, insertIndex?: number }` | `{ task: Task, message?: string }`                                                                                |
-| **タスク取得** | `getTask`      | `{ id: string }`                                                                  | `{ task: Task }`                                                                                                  |
-| **タスク一覧** | `listTasks`    | `{ parentId?: string }`                                                           | `{ tasks: Task[] }`                                                                                               |
-| **タスク更新** | `updateTask`   | `{ id: string, name?: string, description?: string, status?: string, ... }`       | `{ task: Task }`                                                                                                  |
-| **タスク削除** | `deleteTask`   | `{ id: string }`                                                                  | `{ id: string }`                                                                                                  |
-| **タスク開始** | `startTask`    | `{ id: string }`                                                                  | `{ task: Task, started_tasks: Task[], message?: string, hierarchy_summary?: string }`                             |
-| **タスク完了** | `completeTask` | `{ id: string, resolution: string }`                                              | `{ next_task_id?: string, message: string, progress_summary?: ProgressSummary, auto_completed_parents?: Task[] }` |
+| 機能           | ツール名       | 入力パラメータ                                                                                    | 出力                                                                                                              |
+| :------------- | :------------- | :------------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------- |
+| **タスク作成** | `createTask`   | `{ name: string, description?: string, tasks?: Task[], parentId?: string, insertIndex?: number }` | `{ task: Task, message?: string }`                                                                                |
+| **タスク取得** | `getTask`      | `{ id: string }`                                                                                  | `{ task: Task }`                                                                                                  |
+| **タスク一覧** | `listTasks`    | `{ parentId?: string }`                                                                           | `{ tasks: Task[] }`                                                                                               |
+| **タスク更新** | `updateTask`   | `{ id: string, name?: string, description?: string, status?: string, ... }`                       | `{ task: Task }`                                                                                                  |
+| **タスク削除** | `deleteTask`   | `{ id: string }`                                                                                  | `{ id: string }`                                                                                                  |
+| **タスク開始** | `startTask`    | `{ id: string }`                                                                                  | `{ task: Task, started_tasks: Task[], message?: string, hierarchy_summary?: string }`                             |
+| **タスク完了** | `completeTask` | `{ id: string, resolution: string }`                                                              | `{ next_task_id?: string, message: string, progress_summary?: ProgressSummary, auto_completed_parents?: Task[] }` |
 
 #### タスク作成時の配列挿入ロジック
 
@@ -94,6 +94,15 @@ interface HierarchySummaryRow {
 #### タスク作成時のサブタスク推奨メッセージ
 
 - **ルートタスク作成時**: 親タスクIDが未指定（ルートタスク）の場合、作成されたタスクと合わせて、そのタスクを達成するためのサブタスクの作成を推奨するメッセージを返す
+
+#### タスク作成ロジック
+
+- **親タスク作成**: `name`パラメータ（必須）を使用してメインタスクを作成
+- **サブタスク追加**: `tasks`配列が指定された場合、作成した親タスクのサブタスクとして一緒に作成
+- **階層構造処理**: 各サブタスクの`tasks`プロパティに含まれるサブタスクを再帰的に作成
+- **ID処理**: 入力されたタスクのIDが存在する場合は保持し、存在しない場合は新しいUUIDを生成
+- **配置処理**: 作成された親タスクを指定された親タスクまたはルートレベルに配置
+- **統一戻り値**: 作成された親タスク（サブタスクを含む完全な構造）を返却
 
 #### タスク開始時のネストサブタスク自動開始ロジック
 

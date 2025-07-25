@@ -192,6 +192,225 @@ describe("Task Management", () => {
       expect(parentTask.tasks[1]?.id).toBe(child2.task.id)
       expect(parentTask.tasks[2]?.id).toBe(child3.task.id)
     })
+
+    // Batch creation functionality tests
+    it("should create a task with subtasks", () => {
+      const result = createTask({
+        description: "A task with subtasks",
+        name: "Parent Task",
+        tasks: [
+          {
+            description: "First subtask",
+            name: "Subtask 1",
+          },
+          {
+            description: "Second subtask",
+            name: "Subtask 2",
+          },
+        ],
+      })
+
+      expect(result.task.name).toBe("Parent Task")
+      expect(result.task.description).toBe("A task with subtasks")
+      expect(result.task.tasks).toHaveLength(2)
+
+      // Check first subtask
+      expect(result.task.tasks[0]!.name).toBe("Subtask 1")
+      expect(result.task.tasks[0]!.description).toBe("First subtask")
+      expect(result.task.tasks[0]!.status).toBe("todo")
+      expect(result.task.tasks[0]!.tasks).toEqual([])
+
+      // Check second subtask
+      expect(result.task.tasks[1]!.name).toBe("Subtask 2")
+      expect(result.task.tasks[1]!.description).toBe("Second subtask")
+      expect(result.task.tasks[1]!.status).toBe("todo")
+      expect(result.task.tasks[1]!.tasks).toEqual([])
+    })
+
+    it("should create nested subtasks (multiple levels)", () => {
+      const result = createTask({
+        description: "Root with nested structure",
+        name: "Root Task",
+        tasks: [
+          {
+            description: "First level",
+            name: "Level 1 Task",
+            tasks: [
+              {
+                description: "Second level",
+                name: "Level 2 Task",
+                tasks: [
+                  {
+                    description: "Third level",
+                    name: "Level 3 Task",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      })
+
+      expect(result.task.name).toBe("Root Task")
+      expect(result.task.tasks).toHaveLength(1)
+
+      const level1 = result.task.tasks[0]!
+      expect(level1.name).toBe("Level 1 Task")
+      expect(level1.tasks).toHaveLength(1)
+
+      const level2 = level1.tasks[0]!
+      expect(level2.name).toBe("Level 2 Task")
+      expect(level2.tasks).toHaveLength(1)
+
+      const level3 = level2.tasks[0]!
+      expect(level3.name).toBe("Level 3 Task")
+      expect(level3.tasks).toEqual([])
+    })
+
+    it("should handle subtasks without descriptions", () => {
+      const result = createTask({
+        name: "Parent",
+        tasks: [
+          {
+            name: "Child without description",
+          },
+          {
+            description: "This has a description",
+            name: "Child with description",
+          },
+        ],
+      })
+
+      expect(result.task.tasks[0]!.description).toBe("")
+      expect(result.task.tasks[1]!.description).toBe("This has a description")
+    })
+
+    it("should generate unique IDs for all tasks", () => {
+      const result = createTask({
+        name: "Parent",
+        tasks: [{ name: "Child 1" }, { name: "Child 2" }],
+      })
+
+      const allIds = [
+        result.task.id,
+        result.task.tasks[0]!.id,
+        result.task.tasks[1]!.id,
+      ]
+
+      // All IDs should be unique
+      expect(new Set(allIds)).toHaveLength(3)
+
+      // All IDs should be valid UUIDs (basic format check)
+      for (const id of allIds) {
+        expect(id).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+        )
+      }
+    })
+
+    it("should create batch tasks under a parent", () => {
+      // First create a parent task
+      const parent = createTask({
+        name: "Parent Task",
+      })
+
+      // Then create a task with subtasks under that parent
+      createTask({
+        description: "Child with its own subtasks",
+        name: "Batch Child",
+        parentId: parent.task.id,
+        tasks: [{ name: "Grandchild 1" }, { name: "Grandchild 2" }],
+      })
+
+      // Check the hierarchy
+      const rootTasks = listTasks()
+      expect(rootTasks).toHaveLength(1)
+
+      const parentTask = rootTasks[0]!
+      expect(parentTask.tasks).toHaveLength(1)
+
+      const batchChild = parentTask.tasks[0]!
+      expect(batchChild.name).toBe("Batch Child")
+      expect(batchChild.tasks).toHaveLength(2)
+      expect(batchChild.tasks[0]!.name).toBe("Grandchild 1")
+      expect(batchChild.tasks[1]!.name).toBe("Grandchild 2")
+    })
+
+    it("should handle empty tasks array", () => {
+      const result = createTask({
+        name: "Task with empty array",
+        tasks: [],
+      })
+
+      expect(result.task.tasks).toEqual([])
+    })
+
+    it("should preserve task order in batch creation", () => {
+      const taskNames = ["First", "Second", "Third", "Fourth", "Fifth"]
+
+      const result = createTask({
+        name: "Parent",
+        tasks: taskNames.map((name) => ({ name })),
+      })
+
+      const actualNames = result.task.tasks.map((task) => task.name)
+      expect(actualNames).toEqual(taskNames)
+    })
+
+    // Error handling tests for batch functionality
+    it("should throw error for invalid tasks parameter", () => {
+      expect(() =>
+        createTask({
+          name: "Test",
+          tasks: "invalid" as any,
+        }),
+      ).toThrow("Tasks parameter must be an array")
+    })
+
+    it("should throw error for subtask without name", () => {
+      expect(() =>
+        createTask({
+          name: "Test",
+          tasks: [{ name: "" }],
+        }),
+      ).toThrow("Task at tasks[0] must have a non-empty name")
+    })
+
+    it("should throw error for invalid subtask object", () => {
+      expect(() =>
+        createTask({
+          name: "Test",
+          tasks: [null as any],
+        }),
+      ).toThrow("Task at tasks[0] must be an object")
+    })
+
+    it("should throw error for invalid subtask description type", () => {
+      expect(() =>
+        createTask({
+          name: "Test",
+          tasks: [{ description: 123 as any, name: "Valid Name" }],
+        }),
+      ).toThrow("Task description at tasks[0] must be a string")
+    })
+
+    it("should throw error for too deep nesting", () => {
+      // Create a deeply nested structure that exceeds the limit
+      let deeplyNested: any = { name: "Level 11" }
+      for (let i = 10; i > 0; i--) {
+        deeplyNested = {
+          name: `Level ${i}`,
+          tasks: [deeplyNested],
+        }
+      }
+
+      expect(() =>
+        createTask({
+          name: "Root",
+          tasks: [deeplyNested],
+        }),
+      ).toThrow("Task hierarchy too deep")
+    })
   })
 
   describe("getTask", () => {
