@@ -594,7 +594,7 @@ describe("Execution Order Validation - Integration Tests", () => {
 
       // Should only show task 3 as incomplete
       expect(errorMessage).toContain(
-        "The following 1 task(s) in earlier positions must be completed first",
+        "The following 1 task(s) in preceding positions must be completed first",
       )
       expect(errorMessage).toContain("| 3 | Task 3 | todo |")
       expect(errorMessage).not.toContain("Task 1")

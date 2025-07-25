@@ -236,34 +236,12 @@ export function createTask(params: {
     }
   }
 
-  // Collect all existing IDs to avoid duplicates
-  const existingIds = new Set<string>()
-  const collectIds = (tasks: Task[]): void => {
-    for (const task of tasks) {
-      existingIds.add(task.id)
-      if (task.tasks.length > 0) {
-        collectIds(task.tasks)
-      }
-    }
-  }
-  collectIds(allTasks)
-
-  // Helper function to generate unique ID
-  const generateUniqueId = (): string => {
-    let id: string
-    do {
-      id = randomUUID()
-    } while (existingIds.has(id))
-    existingIds.add(id) // Add to set to prevent future duplicates in this session
-    return id
-  }
-
   // Helper function to process subtasks recursively
   const processSubtasks = (inputTasks: TaskInput[]): Task[] => {
     return inputTasks.map((inputTask) => {
       const processedTask: Task = {
         description: inputTask.description || "",
-        id: generateUniqueId(),
+        id: randomUUID(),
         name: inputTask.name,
         resolution: undefined,
         status: "todo",
@@ -275,7 +253,7 @@ export function createTask(params: {
 
   const newTask: Task = {
     description: description.trim(),
-    id: generateUniqueId(),
+    id: randomUUID(),
     name: name.trim(),
     resolution: undefined,
     status: "todo",
@@ -1405,7 +1383,7 @@ function generateExecutionOrderErrorMessage(
 
   const errorMessage =
     `Execution order violation: Cannot start task "${taskToStart.name}" (position: ${taskIndex})${parentInfo}. ` +
-    `The following ${incompletePrecedingTasks.length} task(s) in earlier positions must be completed first: ${taskPositions}.\n\n` +
+    `The following ${incompletePrecedingTasks.length} task(s) in preceding positions must be completed first: ${taskPositions}.\n\n` +
     `Incomplete preceding tasks:\n${incompleteTasksTable}\n\n` +
     `Please complete these tasks in order before starting the requested task.`
 
