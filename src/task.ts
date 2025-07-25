@@ -125,6 +125,12 @@ export function updateTaskInPlace(
   return undefined
 }
 
+export interface TaskInput {
+  description?: string
+  name: string
+  tasks?: TaskInput[]
+}
+
 /**
  * Create a new task
  * @param params Task creation parameters
@@ -135,31 +141,145 @@ export function createTask(params: {
   insertIndex?: number
   name: string
   parentId?: string
+  tasks?: TaskInput[]
 }): { message?: string; task: Task } {
-  const { description = "", insertIndex, name, parentId } = params
+  const {
+    description = "",
+    insertIndex,
+    name,
+    parentId,
+    tasks: subtasks,
+  } = params
 
   if (!name || typeof name !== "string" || name.trim() === "") {
     throw new Error("Task name is required and must be a non-empty string")
   }
 
-  const tasks = readTasks()
+  // Validate subtasks if provided
+  if (subtasks && !Array.isArray(subtasks)) {
+    throw new Error("Tasks parameter must be an array")
+  }
+
+  // Validate each subtask's required fields recursively
+  if (subtasks) {
+    const validateTaskInput = (
+      taskInput: unknown,
+      path: string,
+      depth = 0,
+    ): void => {
+      // Prevent excessive nesting
+      if (depth > 10) {
+        throw new Error(`Task hierarchy too deep`)
+      }
+
+      if (
+        taskInput === null ||
+        typeof taskInput !== "object" ||
+        Array.isArray(taskInput)
+      ) {
+        throw new Error(`Task at ${path} must be an object`)
+      }
+
+      const task = taskInput as TaskInput
+
+      if (
+        !task.name ||
+        typeof task.name !== "string" ||
+        task.name.trim() === ""
+      ) {
+        throw new Error(`Task at ${path} must have a non-empty name`)
+      }
+
+      // Validate description if provided
+      if (
+        task.description !== undefined &&
+        typeof task.description !== "string"
+      ) {
+        throw new Error(`Task description at ${path} must be a string`)
+      }
+
+      // Validate subtasks recursively
+      if (task.tasks) {
+        if (!Array.isArray(task.tasks)) {
+          throw new Error(`Tasks property at ${path} must be an array`)
+        }
+        for (let i = 0; i < task.tasks.length; i++) {
+          const childTask = task.tasks[i]
+          validateTaskInput(childTask, `${path}.tasks[${i}]`, depth + 1)
+        }
+      }
+    }
+
+    for (let i = 0; i < subtasks.length; i++) {
+      const subtask = subtasks[i]
+      validateTaskInput(subtask, `tasks[${i}]`, 1)
+    }
+  }
+  // Validate insertIndex if provided
+  if (insertIndex !== undefined && typeof insertIndex !== "number") {
+    throw new Error("Insert index must be a number")
+  }
+
+  const allTasks = readTasks()
 
   // Validate parentId exists if provided
   let parentTask: Task | undefined
   if (parentId) {
-    parentTask = findTaskById(tasks, parentId)
+    // Validate parentId format (should be UUID)
+    if (typeof parentId !== "string" || parentId.trim() === "") {
+      throw new Error("Parent ID must be a non-empty string")
+    }
+
+    parentTask = findTaskById(allTasks, parentId)
     if (!parentTask) {
       throw new Error(`Parent task with id '${parentId}' not found`)
     }
   }
 
+  // Collect all existing IDs to avoid duplicates
+  const existingIds = new Set<string>()
+  const collectIds = (tasks: Task[]): void => {
+    for (const task of tasks) {
+      existingIds.add(task.id)
+      if (task.tasks.length > 0) {
+        collectIds(task.tasks)
+      }
+    }
+  }
+  collectIds(allTasks)
+
+  // Helper function to generate unique ID
+  const generateUniqueId = (): string => {
+    let id: string
+    do {
+      id = randomUUID()
+    } while (existingIds.has(id))
+    existingIds.add(id) // Add to set to prevent future duplicates in this session
+    return id
+  }
+
+  // Helper function to process subtasks recursively
+  const processSubtasks = (inputTasks: TaskInput[]): Task[] => {
+    return inputTasks.map((inputTask) => {
+      const processedTask: Task = {
+        description: inputTask.description || "",
+        id: generateUniqueId(),
+        name: inputTask.name,
+        resolution: undefined,
+        status: "todo",
+        tasks: inputTask.tasks ? processSubtasks(inputTask.tasks) : [],
+      }
+      return processedTask
+    })
+  }
+
   const newTask: Task = {
     description: description.trim(),
-    id: randomUUID(),
+    id: generateUniqueId(),
     name: name.trim(),
     resolution: undefined,
     status: "todo",
-    tasks: [],
+    tasks: subtasks ? processSubtasks(subtasks) : [],
   }
 
   if (parentTask) {
@@ -196,27 +316,27 @@ export function createTask(params: {
 
       // Handle infinite values by treating them as end-of-array
       if (!Number.isFinite(insertIndex)) {
-        normalizedIndex = tasks.length
+        normalizedIndex = allTasks.length
       }
 
       // Handle negative values by treating them as end-of-array
       if (insertIndex < 0) {
-        normalizedIndex = tasks.length
+        normalizedIndex = allTasks.length
       }
 
       // Handle extremely large values by treating them as end-of-array
-      if (insertIndex > tasks.length) {
-        normalizedIndex = tasks.length
+      if (insertIndex > allTasks.length) {
+        normalizedIndex = allTasks.length
       }
 
-      tasks.splice(normalizedIndex, 0, newTask)
+      allTasks.splice(normalizedIndex, 0, newTask)
     } else {
       // Insert at end
-      tasks.push(newTask)
+      allTasks.push(newTask)
     }
   }
 
-  writeTasks(tasks)
+  writeTasks(allTasks)
 
   // Generate recommendation message for root tasks
   let message: string | undefined
