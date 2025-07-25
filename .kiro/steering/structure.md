@@ -27,7 +27,7 @@
 
 - Dual storage modes: file-based (`FILE_PATH` env var) or in-memory
 - Centralized storage functions: `readTasks()` and `writeTasks()`
-- Task interface with hierarchical relationships via `parent_id`
+- Task interface with hierarchical relationships via nested `tasks` arrays
 
 ### Task Model
 
@@ -38,10 +38,7 @@ interface Task {
   description: string // Detailed description
   status: string // 'todo' | 'in_progress' | 'done'
   resolution?: string // Completion details
-  parent_id?: string // Hierarchical parent reference
-  order: number // Sibling ordering
-  createdAt: Date // Creation timestamp
-  updatedAt: Date // Last modification timestamp
+  tasks: Task[] // Nested subtasks array
 }
 ```
 

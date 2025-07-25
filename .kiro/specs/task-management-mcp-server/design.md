@@ -37,8 +37,6 @@ interface Task {
   status: string // タスクの進捗状況（'todo', 'in_progress', 'done'）
   resolution?: string // タスク完了時の状態や結果（未完了時はundefined）
   tasks: Task[] // サブタスクの配列（ネストした階層構造、配列の順序が実行順序）
-  createdAt: Date // タスクの作成日時
-  updatedAt: Date // タスクの最終更新日時
 }
 
 interface ProgressSummary {
@@ -185,7 +183,6 @@ export function writeTasks(tasks: Task[]): void // ルートレベルのタス�
   - 挿入位置未指定時: 親の `tasks` 配列の末尾に新しいタスクを追加
   - 挿入位置指定時: 指定されたインデックス位置に新しいタスクを挿入し、後続のタスクを後方にシフト
 - **ステータス管理**: `todo` → `in_progress` → `done`の状態遷移
-- **タイムスタンプ**: 作成・更新時刻の自動記録
 - **ネスト構造**: 各タスクは `tasks: Task[]` 配列を持ち、任意の深さのネストをサポート
 
 ### データ永続化戦略
