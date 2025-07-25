@@ -11,17 +11,19 @@
     //     }
     //   }
     // }
-    // "canary": {
-    //   "command": "npx",
-    //   "args": ["-y", "task-orchestrator-mcp@canary"],
-    //   "env": {}
-    // }
-    "task-orchestrator-mcp": {
+    "canary": {
       "command": "npx",
-      "args": ["-y", "task-orchestrator-mcp@latest"],
+      "args": ["-y", "task-orchestrator-mcp@canary"],
       "env": {
         "FILE_PATH": "${workspaceFolder}/task.json"
       }
     }
+    // "task-orchestrator-mcp": {
+    //   "command": "npx",
+    //   "args": ["-y", "task-orchestrator-mcp@latest"],
+    //   "env": {
+    //     "FILE_PATH": "${workspaceFolder}/task.json"
+    //   }
+    // }
   }
 }

@@ -10,14 +10,14 @@ import {
   updateTask,
 } from "./task.js"
 
-// Mock the fs module for I/O error testing
+// Mock fs module for I/O error testing
 vi.mock("fs", () => ({
   existsSync: vi.fn(),
   readFileSync: vi.fn(),
   writeFileSync: vi.fn(),
 }))
 
-// Mock the storage module for business logic testing
+// Mock storage module with error simulation capabilities
 vi.mock("./storage.js", async (importOriginal) => {
   const original = await importOriginal<typeof import("./storage.js")>()
   let mockTasks: Task[] = []
@@ -72,40 +72,18 @@ describe("Error Handling Tests", () => {
 
   describe("Validation Errors", () => {
     describe("createTask validation", () => {
-      it("should throw error for missing name", () => {
-        expect(() => createTask({ name: undefined as any })).toThrow(
-          "Task name is required and must be a non-empty string",
-        )
-      })
+      it("should throw error for invalid name values", () => {
+        const expectedError =
+          "Task name is required and must be a non-empty string"
 
-      it("should throw error for null name", () => {
-        expect(() => createTask({ name: null as any })).toThrow(
-          "Task name is required and must be a non-empty string",
-        )
-      })
+        // Test various invalid name values
+        const invalidNames = [undefined, null, "", "   ", 123, {}, []]
 
-      it("should throw error for empty string name", () => {
-        expect(() => createTask({ name: "" })).toThrow(
-          "Task name is required and must be a non-empty string",
-        )
-      })
-
-      it("should throw error for whitespace-only name", () => {
-        expect(() => createTask({ name: "   " })).toThrow(
-          "Task name is required and must be a non-empty string",
-        )
-      })
-
-      it("should throw error for non-string name", () => {
-        expect(() => createTask({ name: 123 as any })).toThrow(
-          "Task name is required and must be a non-empty string",
-        )
-        expect(() => createTask({ name: {} as any })).toThrow(
-          "Task name is required and must be a non-empty string",
-        )
-        expect(() => createTask({ name: [] as any })).toThrow(
-          "Task name is required and must be a non-empty string",
-        )
+        invalidNames.forEach((invalidName) => {
+          expect(() => createTask({ name: invalidName as any })).toThrow(
+            expectedError,
+          )
+        })
       })
 
       it("should throw error for non-existent parentId", () => {
@@ -116,31 +94,14 @@ describe("Error Handling Tests", () => {
     })
 
     describe("getTask validation", () => {
-      it("should throw error for missing id", () => {
-        expect(() => getTask(undefined as any)).toThrow(
-          "Task ID is required and must be a string",
-        )
-      })
+      it("should throw error for invalid id values", () => {
+        const expectedError = "Task ID is required and must be a string"
 
-      it("should throw error for null id", () => {
-        expect(() => getTask(null as any)).toThrow(
-          "Task ID is required and must be a string",
-        )
-      })
+        const invalidIds = [undefined, null, "", 123, {}]
 
-      it("should throw error for empty string id", () => {
-        expect(() => getTask("")).toThrow(
-          "Task ID is required and must be a string",
-        )
-      })
-
-      it("should throw error for non-string id", () => {
-        expect(() => getTask(123 as any)).toThrow(
-          "Task ID is required and must be a string",
-        )
-        expect(() => getTask({} as any)).toThrow(
-          "Task ID is required and must be a string",
-        )
+        invalidIds.forEach((invalidId) => {
+          expect(() => getTask(invalidId as any)).toThrow(expectedError)
+        })
       })
     })
 

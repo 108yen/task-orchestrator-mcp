@@ -115,20 +115,6 @@ describe("Task Management", () => {
       expect(parentTask.tasks[0]?.id).toBe(result.task.id)
     })
 
-    it("should throw error for empty name", () => {
-      expect(() => createTask({ name: "" })).toThrow("Task name is required")
-      expect(() => createTask({ name: "   " })).toThrow("Task name is required")
-    })
-
-    it("should throw error for invalid name type", () => {
-      expect(() => createTask({ name: null as any })).toThrow(
-        "Task name is required",
-      )
-      expect(() => createTask({ name: 123 as any })).toThrow(
-        "Task name is required",
-      )
-    })
-
     it("should throw error for non-existent parent", () => {
       expect(() =>
         createTask({ name: "Test", parentId: "non-existent" }),
@@ -301,13 +287,6 @@ describe("Task Management", () => {
       expect(() =>
         updateTask({ id: result.task.id, status: "invalid" }),
       ).toThrow("Invalid status 'invalid'")
-    })
-
-    it("should throw error for empty name", () => {
-      const result = createTask({ name: "Test" })
-      expect(() => updateTask({ id: result.task.id, name: "" })).toThrow(
-        "Task name must be a non-empty string",
-      )
     })
   })
 
@@ -708,13 +687,6 @@ describe("Task Management", () => {
       expect(() =>
         completeTask({ id: result.task.id, resolution: "Done again" }),
       ).toThrow(/Task .* is already completed/)
-    })
-
-    it("should throw error for empty resolution", () => {
-      const result = createTask({ name: "Test" })
-      expect(() =>
-        completeTask({ id: result.task.id, resolution: "" }),
-      ).toThrow("Resolution is required")
     })
 
     it("should find next sibling task", () => {
