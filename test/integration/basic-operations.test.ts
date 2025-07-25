@@ -27,17 +27,11 @@ describe("Basic CRUD Operations Integration Tests", () => {
       expect(response).toHaveProperty("task")
       expect(response).toHaveProperty("message")
       expect(response.task).toEqual({
-        createdAt: expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
-        ),
         description: "",
         id: expect.any(String),
         name: "test task",
         status: "todo",
         tasks: [],
-        updatedAt: expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
-        ),
       })
     })
 
@@ -67,17 +61,11 @@ describe("Basic CRUD Operations Integration Tests", () => {
       expect(response).toHaveProperty("task")
       // For child tasks, there should not be a message
       expect(response.task).toEqual({
-        createdAt: expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
-        ),
         description: "child description",
         id: expect.any(String),
         name: "child task",
         status: "todo",
         tasks: [],
-        updatedAt: expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
-        ),
       })
     })
 
@@ -363,9 +351,6 @@ describe("Basic CRUD Operations Integration Tests", () => {
         description: "updated description",
         name: "updated task",
         status: "in_progress",
-        updatedAt: expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
-        ),
       })
     })
   })
@@ -460,9 +445,6 @@ describe("Basic CRUD Operations Integration Tests", () => {
       expect(response.task).toEqual({
         ...createdTask,
         status: "in_progress",
-        updatedAt: expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
-        ),
       })
     })
   })
