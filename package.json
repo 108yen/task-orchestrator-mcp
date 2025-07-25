@@ -19,7 +19,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check --cache .",
     "test": "vitest run",
-    "test:ui": "vitest --ui --coverage.enabled-true",
+    "test:ui": "vitest --ui --coverage.enabled=true",
     "test:coverage": "vitest run --coverage",
     "quality": "pnpm format && pnpm lint:fix && pnpm typecheck && pnpm test",
     "release:canary": "pnpm changeset version --snapshot && pnpm changeset publish --no-git-tag --tag canary",
