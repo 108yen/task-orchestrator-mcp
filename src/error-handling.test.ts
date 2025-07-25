@@ -394,13 +394,11 @@ describe("Error Handling Tests", () => {
         const tasks: Task[] = []
         for (let i = 0; i < 1000; i++) {
           tasks.push({
-            createdAt: new Date(),
             description: `Description ${i}`,
             id: `task-${i}`,
             name: `Task ${i}`,
             status: "todo",
             tasks: [], // New nested structure
-            updatedAt: new Date(),
           })
         }
         __setMockTasks(tasks)

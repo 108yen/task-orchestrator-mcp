@@ -153,16 +153,13 @@ export function createTask(params: {
     }
   }
 
-  const now = new Date()
   const newTask: Task = {
-    createdAt: now,
     description: description.trim(),
     id: randomUUID(),
     name: name.trim(),
     resolution: undefined,
     status: "todo",
     tasks: [],
-    updatedAt: now,
   }
 
   if (parentTask) {
@@ -330,8 +327,6 @@ export function updateTask(params: {
       typeof resolution === "string" ? resolution.trim() : undefined
   }
 
-  currentTask.updatedAt = new Date()
-
   writeTasks(tasks)
 
   return currentTask
@@ -452,13 +447,10 @@ function resetInProgressLeafNodes(tasks: Task[]): Task[] {
   }
 
   const updatedTasks: Task[] = []
-  const now = new Date()
-
   for (const leafTask of inProgressLeafNodes) {
     const updatedTask = updateTaskInPlace(tasks, leafTask.id, (task) => ({
       ...task,
       status: "todo",
-      updatedAt: now,
     }))
 
     if (updatedTask) {
@@ -467,7 +459,7 @@ function resetInProgressLeafNodes(tasks: Task[]): Task[] {
   }
 
   // After resetting leaf nodes, update parent statuses
-  updateParentStatusesAfterReset(tasks, now, updatedTasks)
+  updateParentStatusesAfterReset(tasks, updatedTasks)
 
   return updatedTasks
 }
@@ -477,7 +469,6 @@ function resetInProgressLeafNodes(tasks: Task[]): Task[] {
  */
 function updateParentStatusesAfterReset(
   tasks: Task[],
-  now: Date,
   updatedTasks: Task[],
 ): void {
   // Get all parent nodes that might need status updates
@@ -495,7 +486,6 @@ function updateParentStatusesAfterReset(
       const updatedParent = updateTaskInPlace(tasks, parent.id, (task) => ({
         ...task,
         status: "todo",
-        updatedAt: now,
       }))
 
       if (updatedParent) {
@@ -510,7 +500,6 @@ function updateParentStatusesAfterReset(
  */
 function updateParentStatuses(taskId: string, tasks: Task[]): Task[] {
   const updatedParents: Task[] = []
-  const now = new Date()
 
   const task = findTaskById(tasks, taskId)
   const parent = task ? findParentTask(tasks, task.id) : null
@@ -532,7 +521,6 @@ function updateParentStatuses(taskId: string, tasks: Task[]): Task[] {
     const updatedParent = updateTaskInPlace(tasks, parent.id, (task) => ({
       ...task,
       status: "in_progress",
-      updatedAt: now,
     }))
 
     if (updatedParent) {
@@ -593,7 +581,6 @@ export function startTask(id: string): {
   const updatedTask = updateTaskInPlace(tasks, id, (task) => ({
     ...task,
     status: "in_progress",
-    updatedAt: new Date(),
   }))
 
   if (!updatedTask) {
@@ -612,7 +599,6 @@ export function startTask(id: string): {
 
   if (deepestResult) {
     const { executionPath } = deepestResult
-    const now = new Date()
 
     // Start all tasks in the execution path (excluding the main task which is already started)
     for (const pathTask of executionPath) {
@@ -622,7 +608,6 @@ export function startTask(id: string): {
           return {
             ...task,
             status: "in_progress",
-            updatedAt: now,
           }
         }
         return task
@@ -969,7 +954,6 @@ function autoCompleteParentTasks(tasks: Task[], completedTask: Task): Task[] {
       ...task,
       resolution: `Auto-completed: All subtasks completed`,
       status: "done",
-      updatedAt: new Date(),
     }))
 
     if (updatedParent) {
@@ -1043,7 +1027,6 @@ export function completeTask(params: { id: string; resolution: string }): {
     ...task,
     resolution: resolution.trim(),
     status: "done" as const,
-    updatedAt: new Date(),
   }))
 
   if (!updatedTask) {

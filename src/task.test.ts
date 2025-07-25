@@ -51,8 +51,6 @@ describe("Task Management", () => {
         status: "todo",
       })
       expect(result.task.id).toBeDefined()
-      expect(result.task.createdAt).toBeInstanceOf(Date)
-      expect(result.task.updatedAt).toBeInstanceOf(Date)
       expect(writeTasks).toHaveBeenCalledWith([result.task])
     })
 
@@ -250,11 +248,6 @@ describe("Task Management", () => {
   describe("updateTask", () => {
     it("should update task fields", () => {
       const result = createTask({ name: "Original" })
-      const originalUpdatedAt = result.task.updatedAt
-
-      // Wait a bit to ensure different timestamp
-      vi.useFakeTimers()
-      vi.advanceTimersByTime(1000)
 
       const updatedTask = updateTask({
         description: "New description",
@@ -271,9 +264,6 @@ describe("Task Management", () => {
         resolution: "Some resolution",
         status: "in_progress",
       })
-      expect(updatedTask.updatedAt).not.toEqual(originalUpdatedAt)
-
-      vi.useRealTimers()
     })
 
     it("should throw error for non-existent task", () => {
@@ -323,24 +313,15 @@ describe("Task Management", () => {
     it("should start a todo task", () => {
       const result = createTask({ name: "Test" })
 
-      // Wait a bit to ensure different timestamp
-      vi.useFakeTimers()
-      vi.advanceTimersByTime(1000)
-
       const startResult = startTask(result.task.id)
 
       expect(startResult.task.status).toBe("in_progress")
-      expect(startResult.task.updatedAt.getTime()).toBeGreaterThan(
-        result.task.updatedAt.getTime(),
-      )
       expect(startResult.message).toBe(
         "Task 'Test' started. No incomplete subtasks found.",
       )
       expect(startResult.started_tasks).toHaveLength(1)
       expect(startResult.started_tasks[0]?.id).toBe(result.task.id)
       expect(startResult.hierarchy_summary).toBeDefined()
-
-      vi.useRealTimers()
     })
 
     it("should start a task and its first incomplete subtask", () => {

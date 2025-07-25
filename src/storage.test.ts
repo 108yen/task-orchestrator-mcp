@@ -14,24 +14,20 @@ const mockFs = vi.mocked(fs)
 
 describe("Storage", () => {
   const mockTask: Task = {
-    createdAt: new Date("2024-01-01T00:00:00.000Z"),
     description: "Test Description",
     id: "test-id-1",
     name: "Test Task",
     status: "todo",
     tasks: [], // New nested structure
-    updatedAt: new Date("2024-01-01T00:00:00.000Z"),
   }
 
   const mockTaskWithResolution: Task = {
-    createdAt: new Date("2024-01-01T00:00:00.000Z"),
     description: "Completed Description",
     id: "test-id-2",
     name: "Completed Task",
     resolution: "Task completed successfully",
     status: "done",
     tasks: [], // New nested structure
-    updatedAt: new Date("2024-01-01T01:00:00.000Z"),
   }
 
   beforeEach(() => {
@@ -67,9 +63,6 @@ describe("Storage", () => {
         expect(result).toHaveLength(2)
         expect(result[0]).toEqual(mockTask)
         expect(result[1]).toEqual(mockTaskWithResolution)
-        // Verify dates are properly converted back to Date objects
-        expect(result[0]?.createdAt).toBeInstanceOf(Date)
-        expect(result[0]?.updatedAt).toBeInstanceOf(Date)
       })
 
       it("should return empty array when file does not exist", () => {
@@ -265,43 +258,6 @@ describe("Storage", () => {
 
       const result = readTasks()
       expect(result).toEqual([]) // Memory mode starts empty after clearing
-    })
-  })
-
-  describe("Date handling", () => {
-    it("should properly serialize and deserialize dates in file mode", () => {
-      process.env.FILE_PATH = "/test/path/tasks.json"
-      const taskWithDates = {
-        ...mockTask,
-        createdAt: new Date("2024-01-15T10:30:00.000Z"),
-        updatedAt: new Date("2024-01-15T11:45:00.000Z"),
-      }
-
-      // Write task
-      writeTasks([taskWithDates])
-
-      // Verify the JSON written to file contains date strings
-      const writtenContent = mockFs.writeFileSync.mock.calls[0]?.[1] as string
-      const parsedContent = JSON.parse(writtenContent)
-      expect(typeof parsedContent[0]?.createdAt).toBe("string")
-      expect(typeof parsedContent[0]?.updatedAt).toBe("string")
-
-      // Mock reading the file back
-      mockFs.existsSync.mockReturnValue(true)
-      mockFs.readFileSync.mockReturnValue(writtenContent)
-
-      // Read task back
-      const readTasksResult = readTasks()
-
-      // Verify dates are converted back to Date objects
-      expect(readTasksResult[0]?.createdAt).toBeInstanceOf(Date)
-      expect(readTasksResult[0]?.updatedAt).toBeInstanceOf(Date)
-      expect(readTasksResult[0]?.createdAt.toISOString()).toBe(
-        "2024-01-15T10:30:00.000Z",
-      )
-      expect(readTasksResult[0]?.updatedAt.toISOString()).toBe(
-        "2024-01-15T11:45:00.000Z",
-      )
     })
   })
 })

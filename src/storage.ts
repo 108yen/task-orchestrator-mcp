@@ -36,14 +36,12 @@ export interface ProgressSummary {
  * Task interface representing a task in the system
  */
 export interface Task {
-  createdAt: Date // タスクの作成日時
   description: string // タスクの詳細な説明
   id: string // タスクを一意に識別するためのID（UUID）
   name: string // タスクの名称
   resolution?: string // タスク完了時の状態や結果（未完了時はundefined）
   status: string // タスクの進捗状況（'todo', 'in_progress', 'done'）
   tasks: Task[] // サブタスクの配列（ネストした階層構造、配列の順序が実行順序）
-  updatedAt: Date // タスクの最終更新日時
 }
 
 /**
@@ -63,34 +61,6 @@ export interface TaskProgressRow {
 let memoryTasks: Task[] = []
 
 /**
- * Recursively convert date strings to Date objects in nested task structure
- * @param task Task object that may contain date strings
- * @returns Task object with Date objects
- */
-function convertDatesToObjects(task: any): Task {
-  return {
-    ...task,
-    createdAt: new Date(task.createdAt),
-    tasks: (task.tasks || []).map(convertDatesToObjects),
-    updatedAt: new Date(task.updatedAt),
-  }
-}
-
-/**
- * Recursively convert Date objects to strings in nested task structure for JSON serialization
- * @param task Task object that may contain Date objects
- * @returns Task object with date strings
- */
-function convertDatesToStrings(task: Task): any {
-  return {
-    ...task,
-    createdAt: task.createdAt.toISOString(),
-    tasks: task.tasks.map(convertDatesToStrings),
-    updatedAt: task.updatedAt.toISOString(),
-  }
-}
-
-/**
  * Read tasks from storage (file or memory based on FILE_PATH environment variable)
  * @returns Array of tasks
  */
@@ -104,8 +74,7 @@ export function readTasks(): Task[] {
         const fileContent = readFileSync(filePath, "utf-8")
         const tasks = JSON.parse(fileContent) as any[]
 
-        // Convert date strings back to Date objects recursively
-        return tasks.map(convertDatesToObjects)
+        return tasks
       } else {
         // File doesn't exist, return empty array
         return []
@@ -131,9 +100,7 @@ export function writeTasks(tasks: Task[]): void {
   if (filePath) {
     // File-based storage mode
     try {
-      // Convert Date objects to strings recursively for JSON serialization
-      const tasksForJson = tasks.map(convertDatesToStrings)
-      const jsonContent = JSON.stringify(tasksForJson, null, 2)
+      const jsonContent = JSON.stringify(tasks, null, 2)
       writeFileSync(filePath, jsonContent, "utf-8")
     } catch (error) {
       // eslint-disable-next-line no-console
