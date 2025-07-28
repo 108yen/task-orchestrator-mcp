@@ -36,15 +36,12 @@ export interface ProgressSummary {
  * Task interface representing a task in the system
  */
 export interface Task {
-  createdAt: Date // タスクの作成日時
   description: string // タスクの詳細な説明
   id: string // タスクを一意に識別するためのID（UUID）
   name: string // タスクの名称
-  order: number // 兄弟タスク内での実行順序を示す数値
-  parentId?: string // 親タスクのID（トップレベルの場合はundefined）
   resolution?: string // タスク完了時の状態や結果（未完了時はundefined）
   status: string // タスクの進捗状況（'todo', 'in_progress', 'done'）
-  updatedAt: Date // タスクの最終更新日時
+  tasks: Task[] // サブタスクの配列（ネストした階層構造、配列の順序が実行順序）
 }
 
 /**
@@ -75,14 +72,9 @@ export function readTasks(): Task[] {
     try {
       if (existsSync(filePath)) {
         const fileContent = readFileSync(filePath, "utf-8")
-        const tasks = JSON.parse(fileContent) as Task[]
+        const tasks = JSON.parse(fileContent) as any[]
 
-        // Convert date strings back to Date objects
-        return tasks.map((task) => ({
-          ...task,
-          createdAt: new Date(task.createdAt),
-          updatedAt: new Date(task.updatedAt),
-        }))
+        return tasks
       } else {
         // File doesn't exist, return empty array
         return []
@@ -118,5 +110,27 @@ export function writeTasks(tasks: Task[]): void {
   } else {
     // In-memory storage mode
     memoryTasks = [...tasks]
+  }
+}
+
+/**
+ * Clear all tasks from storage (for testing purposes)
+ */
+export function clearTasks(): void {
+  const filePath = process.env.FILE_PATH
+
+  if (filePath) {
+    // File-based storage mode
+    try {
+      if (existsSync(filePath)) {
+        writeFileSync(filePath, JSON.stringify([]), "utf-8")
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("Error clearing tasks file:", error)
+    }
+  } else {
+    // In-memory storage mode
+    memoryTasks = []
   }
 }

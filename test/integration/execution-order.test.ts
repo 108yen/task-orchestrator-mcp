@@ -7,8 +7,8 @@ describe("Execution Order Validation - Integration Tests", () => {
     await setupMCPConnection()
   })
 
-  beforeEach(async () => {
-    await clearAllTasks()
+  beforeEach(() => {
+    clearAllTasks()
   })
 
   describe("Basic Execution Order Validation", () => {
@@ -150,7 +150,7 @@ describe("Execution Order Validation - Integration Tests", () => {
   })
 
   describe("Hierarchical Execution Order Validation", () => {
-    it("should validate order within parent scope only", async () => {
+    it("should validate order including parent sibling scope", async () => {
       // Create two parent tasks
       const parent1Response = (await client.callTool({
         arguments: {
@@ -188,9 +188,7 @@ describe("Execution Order Validation - Integration Tests", () => {
         },
         name: "createTask",
       })) as MCPResponse
-      const child2P1 = JSON.parse(
-        (child2P1Response.content![0] as any).text,
-      ).task
+      expect(child2P1Response.isError).toBeUndefined()
 
       // Create children under parent2
       const child1P2Response = (await client.callTool({
@@ -205,32 +203,109 @@ describe("Execution Order Validation - Integration Tests", () => {
         (child1P2Response.content![0] as any).text,
       ).task
 
-      // Should be able to start first child of parent2
-      // even if parent1's children are not completed
+      // Should NOT be able to start first child of parent2
+      // because parent1 (preceding sibling of parent2) is not completed
       const startChild1P2Response = (await client.callTool({
         arguments: {
           id: child1P2.id,
         },
         name: "startTask",
       })) as MCPResponse
-      expect(startChild1P2Response.isError).toBeUndefined()
+      expect(startChild1P2Response.isError).toBe(true)
 
-      // Should not be able to start second child of parent1
-      // without completing first
-      const startChild2P1Response = (await client.callTool({
+      const errorContent = JSON.parse(
+        (startChild1P2Response.content![0] as any).text,
+      )
+      expect(errorContent.error.message).toContain("Feature A")
+
+      // Complete parent1 first - need to complete its subtasks first
+      const featureATask1Response = (await client.callTool({
+        arguments: {},
+        name: "listTasks",
+      })) as MCPResponse
+      const allTasks = JSON.parse(
+        (featureATask1Response.content![0] as any).text,
+      ).tasks
+      const featureA = allTasks.find((t: any) => t.name === "Feature A")
+      const featureATask1 = featureA.tasks.find(
+        (t: any) => t.name === "Feature A - Task 1",
+      )
+      const featureATask2 = featureA.tasks.find(
+        (t: any) => t.name === "Feature A - Task 2",
+      )
+
+      // Complete Feature A's subtasks
+      await client.callTool({
         arguments: {
-          id: child2P1.id,
+          id: featureATask1.id,
+          resolution: "Feature A Task 1 completed",
+        },
+        name: "completeTask",
+      })
+
+      await client.callTool({
+        arguments: {
+          id: featureATask2.id,
+        },
+        name: "startTask",
+      })
+      await client.callTool({
+        arguments: {
+          id: featureATask2.id,
+          resolution: "Feature A Task 2 completed",
+        },
+        name: "completeTask",
+      })
+
+      // Now complete Feature A itself
+      await client.callTool({
+        arguments: {
+          id: parent1.id,
+          resolution: "Feature A completed",
+        },
+        name: "completeTask",
+      })
+
+      // Now should be able to start first child of parent2
+      const startChild1P2RetryResponse = (await client.callTool({
+        arguments: {
+          id: child1P2.id,
         },
         name: "startTask",
       })) as MCPResponse
-      expect(startChild2P1Response.isError).toBe(true)
 
-      const errorContent = JSON.parse(
-        (startChild2P1Response.content![0] as any).text,
+      expect(startChild1P2RetryResponse.isError).toBeUndefined()
+
+      // Create a new test case for sibling order within the same parent
+      // Add another child under Feature B to test sibling order
+      const child2P2Response = (await client.callTool({
+        arguments: {
+          name: "Feature B - Task 2",
+          order: 2,
+          parentId: parent2.id,
+        },
+        name: "createTask",
+      })) as MCPResponse
+      const child2P2 = JSON.parse(
+        (child2P2Response.content![0] as any).text,
+      ).task
+
+      // Should not be able to start second child of Feature B
+      // without completing first child
+      const startChild2P2Response = (await client.callTool({
+        arguments: {
+          id: child2P2.id,
+        },
+        name: "startTask",
+      })) as MCPResponse
+      expect(startChild2P2Response.isError).toBe(true)
+
+      const errorContent2 = JSON.parse(
+        (startChild2P2Response.content![0] as any).text,
       )
-      expect(errorContent.error.code).toBe("EXECUTION_ORDER_VIOLATION")
-      expect(errorContent.error.message).toContain(
-        'within parent task "Feature A"',
+      expect(errorContent2.error.code).toBe("EXECUTION_ORDER_VIOLATION")
+      expect(errorContent2.error.message).toContain(
+        'within parent task "Feature B"',
       )
     })
 
@@ -397,7 +472,7 @@ describe("Execution Order Validation - Integration Tests", () => {
         "| 2 | API Development | todo | Build REST API endpoints |",
       )
       expect(errorMessage).toContain(
-        "The following 2 task(s) with smaller order values must be completed first",
+        "The following 2 task(s) in preceding positions must be completed first",
       )
       expect(errorMessage).toContain("Please complete these tasks in order")
     })
@@ -519,7 +594,7 @@ describe("Execution Order Validation - Integration Tests", () => {
 
       // Should only show task 3 as incomplete
       expect(errorMessage).toContain(
-        "The following 1 task(s) with smaller order values must be completed first",
+        "The following 1 task(s) in preceding positions must be completed first",
       )
       expect(errorMessage).toContain("| 3 | Task 3 | todo |")
       expect(errorMessage).not.toContain("Task 1")
@@ -551,6 +626,171 @@ describe("Execution Order Validation - Integration Tests", () => {
         name: "startTask",
       })) as MCPResponse
       expect(startTask4AgainResponse.isError).toBeUndefined()
+    })
+  })
+
+  describe("Nested Hierarchy Execution Order Bug", () => {
+    it("should prevent starting level 2 task 1 when level 1 task 1 is not completed", async () => {
+      // Create the exact structure from the prompt
+      const rootTaskResponse = (await client.callTool({
+        arguments: {
+          description: "main project task",
+          name: "root task",
+        },
+        name: "createTask",
+      })) as MCPResponse
+      expect(rootTaskResponse.isError).toBeUndefined()
+      const rootTask = JSON.parse(
+        (rootTaskResponse.content![0] as any).text,
+      ).task
+
+      // Create level 1 task 1
+      const level1Task1Response = (await client.callTool({
+        arguments: {
+          description: "",
+          name: "level 1 task 1",
+          parentId: rootTask.id,
+        },
+        name: "createTask",
+      })) as MCPResponse
+      expect(level1Task1Response.isError).toBeUndefined()
+
+      // Create level 1 task 2
+      const level1Task2Response = (await client.callTool({
+        arguments: {
+          description: "",
+          name: "level 1 task 2",
+          parentId: rootTask.id,
+        },
+        name: "createTask",
+      })) as MCPResponse
+      expect(level1Task2Response.isError).toBeUndefined()
+      const level1Task2 = JSON.parse(
+        (level1Task2Response.content![0] as any).text,
+      ).task
+
+      // Create level 2 task 1 under level 1 task 2
+      const level2Task1Response = (await client.callTool({
+        arguments: {
+          description: "",
+          name: "level 2 task 1",
+          parentId: level1Task2.id,
+        },
+        name: "createTask",
+      })) as MCPResponse
+      expect(level2Task1Response.isError).toBeUndefined()
+      const level2Task1 = JSON.parse(
+        (level2Task1Response.content![0] as any).text,
+      ).task
+
+      // Create level 2 task 2 under level 1 task 2
+      const level2Task2Response = (await client.callTool({
+        arguments: {
+          description: "",
+          name: "level 2 task 2",
+          parentId: level1Task2.id,
+        },
+        name: "createTask",
+      })) as MCPResponse
+      expect(level2Task2Response.isError).toBeUndefined()
+
+      // Try to start level 2 task 1 while level 1 task 1 is still todo
+      // This should fail because level 1 task 1 must be completed first
+      const startLevel2Task1Response = (await client.callTool({
+        arguments: {
+          id: level2Task1.id,
+        },
+        name: "startTask",
+      })) as MCPResponse
+
+      // This should fail, but currently it might succeed (the bug)
+      expect(startLevel2Task1Response.isError).toBe(true)
+
+      if (startLevel2Task1Response.isError) {
+        const errorContent = JSON.parse(
+          (startLevel2Task1Response.content![0] as any).text,
+        )
+        expect(errorContent.error.message).toContain("level 1 task 1")
+      }
+    })
+
+    it("should allow starting level 2 task 1 after level 1 task 1 is completed", async () => {
+      // Create the same structure as above
+      const rootTaskResponse = (await client.callTool({
+        arguments: {
+          description: "main project task",
+          name: "root task",
+        },
+        name: "createTask",
+      })) as MCPResponse
+      expect(rootTaskResponse.isError).toBeUndefined()
+      const rootTask = JSON.parse(
+        (rootTaskResponse.content![0] as any).text,
+      ).task
+
+      const level1Task1Response = (await client.callTool({
+        arguments: {
+          description: "",
+          name: "level 1 task 1",
+          parentId: rootTask.id,
+        },
+        name: "createTask",
+      })) as MCPResponse
+      expect(level1Task1Response.isError).toBeUndefined()
+      const level1Task1 = JSON.parse(
+        (level1Task1Response.content![0] as any).text,
+      ).task
+
+      const level1Task2Response = (await client.callTool({
+        arguments: {
+          description: "",
+          name: "level 1 task 2",
+          parentId: rootTask.id,
+        },
+        name: "createTask",
+      })) as MCPResponse
+      expect(level1Task2Response.isError).toBeUndefined()
+      const level1Task2 = JSON.parse(
+        (level1Task2Response.content![0] as any).text,
+      ).task
+
+      const level2Task1Response = (await client.callTool({
+        arguments: {
+          description: "",
+          name: "level 2 task 1",
+          parentId: level1Task2.id,
+        },
+        name: "createTask",
+      })) as MCPResponse
+      expect(level2Task1Response.isError).toBeUndefined()
+      const level2Task1 = JSON.parse(
+        (level2Task1Response.content![0] as any).text,
+      ).task
+
+      // First complete level 1 task 1
+      await client.callTool({
+        arguments: {
+          id: level1Task1.id,
+        },
+        name: "startTask",
+      })
+      await client.callTool({
+        arguments: {
+          id: level1Task1.id,
+          resolution: "Completed",
+        },
+        name: "completeTask",
+      })
+
+      // Now try to start level 2 task 1 - this should succeed
+      const startLevel2Task1Response = (await client.callTool({
+        arguments: {
+          id: level2Task1.id,
+        },
+        name: "startTask",
+      })) as MCPResponse
+
+      expect(startLevel2Task1Response.isError).toBeUndefined()
     })
   })
 })

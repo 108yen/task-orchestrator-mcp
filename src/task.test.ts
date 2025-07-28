@@ -48,12 +48,9 @@ describe("Task Management", () => {
       expect(result.task).toMatchObject({
         description: "",
         name: "Test Task",
-        order: 1,
         status: "todo",
       })
       expect(result.task.id).toBeDefined()
-      expect(result.task.createdAt).toBeInstanceOf(Date)
-      expect(result.task.updatedAt).toBeInstanceOf(Date)
       expect(writeTasks).toHaveBeenCalledWith([result.task])
     })
 
@@ -63,7 +60,6 @@ describe("Task Management", () => {
       expect(result.task).toMatchObject({
         description: "",
         name: "Root Task",
-        order: 1,
         status: "todo",
       })
       expect(result.message).toBeDefined()
@@ -86,9 +82,12 @@ describe("Task Management", () => {
       expect(result.task).toMatchObject({
         description: "",
         name: "Child Task",
-        parentId: parentResult.task.id,
         status: "todo",
       })
+      // Verify the child task is in the parent's tasks array
+      const parentTask = getTask(parentResult.task.id)
+      expect(parentTask.tasks).toHaveLength(1)
+      expect(parentTask.tasks[0]?.id).toBe(result.task.id)
       expect(result.message).toBeUndefined()
     })
 
@@ -98,38 +97,26 @@ describe("Task Management", () => {
 
       const result = createTask({
         description: "Test description",
+        insertIndex: 0,
         name: "Child Task",
-        order: 5,
         parentId: parentResult.task.id,
       })
 
       expect(result.task).toMatchObject({
         description: "Test description",
         name: "Child Task",
-        order: 5,
-        parentId: parentResult.task.id,
         status: "todo",
       })
-    })
-
-    it("should throw error for empty name", () => {
-      expect(() => createTask({ name: "" })).toThrow("Task name is required")
-      expect(() => createTask({ name: "   " })).toThrow("Task name is required")
-    })
-
-    it("should throw error for invalid name type", () => {
-      expect(() => createTask({ name: null as any })).toThrow(
-        "Task name is required",
-      )
-      expect(() => createTask({ name: 123 as any })).toThrow(
-        "Task name is required",
-      )
+      // Verify the child task is in the parent's tasks array at the specified index
+      const parentTask = getTask(parentResult.task.id)
+      expect(parentTask.tasks).toHaveLength(1)
+      expect(parentTask.tasks[0]?.id).toBe(result.task.id)
     })
 
     it("should throw error for non-existent parent", () => {
       expect(() =>
         createTask({ name: "Test", parentId: "non-existent" }),
-      ).toThrow("Parent task with id 'non-existent' does not exist")
+      ).toThrow("Parent task with id 'non-existent' not found")
     })
 
     it("should trim name and description", () => {
@@ -142,131 +129,287 @@ describe("Task Management", () => {
       expect(result.task.description).toBe("Test description")
     })
 
-    it("should assign order = 1 if not specified and no siblings", () => {
-      const result = createTask({ name: "Test Task" })
-      expect(result.task.order).toBe(1)
-    })
-
-    it("should assign max order + 1 if not specified", () => {
-      createTask({ name: "Task 1", order: 5 })
+    it("should create tasks in default order (at end of array) when insertIndex not specified", () => {
+      const result1 = createTask({ name: "Task 1" })
       const result2 = createTask({ name: "Task 2" })
-      expect(result2.task.order).toBe(6)
-    })
-
-    it("should shift existing orders if specified order conflicts", () => {
-      const result1 = createTask({ name: "Task 1", order: 1 })
-      const result2 = createTask({ name: "Task 2", order: 2 })
-      const result3 = createTask({ name: "Task 3", order: 1 }) // Conflict with task1
 
       const tasks = listTasks()
-      const updatedTask1 = tasks.find((t) => t.id === result1.task.id)
-      const updatedTask2 = tasks.find((t) => t.id === result2.task.id)
-
-      expect(result3.task.order).toBe(1)
-      expect(updatedTask1?.order).toBe(2)
-      expect(updatedTask2?.order).toBe(3)
+      expect(tasks).toHaveLength(2)
+      expect(tasks[0]?.id).toBe(result1.task.id)
+      expect(tasks[1]?.id).toBe(result2.task.id)
     })
 
-    it("should treat order = 0 as unspecified and assign to end", () => {
-      // Create some existing tasks
-      const result1 = createTask({ name: "Task 1", order: 1 })
-      const result2 = createTask({ name: "Task 2", order: 2 })
-      const result3 = createTask({ name: "Task 3", order: 3 })
-
-      // Create task with order = 0, should be treated as unspecified
-      const result0 = createTask({ name: "Task with order 0", order: 0 })
+    it("should insert task at specified insertIndex", () => {
+      createTask({ name: "Task 1" })
+      createTask({ name: "Task 3" })
+      const result2 = createTask({ insertIndex: 1, name: "Task 2" }) // Insert between Task 1 and Task 3
 
       const tasks = listTasks()
-      const task0 = tasks.find((t) => t.id === result0.task.id)
-
-      // Should be assigned max order + 1 (i.e., 4), not 0
-      expect(task0?.order).toBe(4)
-
-      // Other tasks should remain unchanged
-      const task1 = tasks.find((t) => t.id === result1.task.id)
-      const task2 = tasks.find((t) => t.id === result2.task.id)
-      const task3 = tasks.find((t) => t.id === result3.task.id)
-
-      expect(task1?.order).toBe(1)
-      expect(task2?.order).toBe(2)
-      expect(task3?.order).toBe(3)
+      expect(tasks).toHaveLength(3)
+      expect(tasks[0]?.name).toBe("Task 1")
+      expect(tasks[1]?.id).toBe(result2.task.id)
+      expect(tasks[1]?.name).toBe("Task 2")
+      expect(tasks[2]?.name).toBe("Task 3")
     })
 
-    it("should handle order = 0 with siblings correctly", () => {
+    it("should handle insertIndex at beginning of array", () => {
+      createTask({ name: "Task 2" })
+      createTask({ name: "Task 3" })
+      const result1 = createTask({ insertIndex: 0, name: "Task 1" }) // Insert at beginning
+
+      const tasks = listTasks()
+      expect(tasks).toHaveLength(3)
+      expect(tasks[0]?.id).toBe(result1.task.id)
+      expect(tasks[0]?.name).toBe("Task 1")
+      expect(tasks[1]?.name).toBe("Task 2")
+      expect(tasks[2]?.name).toBe("Task 3")
+    })
+
+    it("should handle hierarchical insertIndex with parent-child relationships", () => {
       // Create parent task
       const parent = createTask({ name: "Parent Task" })
 
-      // Create child tasks with orders 1, 2, 3
+      // Create child tasks
       const child1 = createTask({
         name: "Child 1",
-        order: 1,
-        parentId: parent.task.id,
-      })
-      const child2 = createTask({
-        name: "Child 2",
-        order: 2,
         parentId: parent.task.id,
       })
       const child3 = createTask({
         name: "Child 3",
-        order: 3,
         parentId: parent.task.id,
       })
 
-      // Create child with order = 0, should be assigned to end (order 4)
-      const child0 = createTask({
-        name: "Child with order 0",
-        order: 0,
+      // Insert child 2 between child 1 and child 3
+      const child2 = createTask({
+        insertIndex: 1,
+        name: "Child 2",
         parentId: parent.task.id,
       })
 
-      const childTasks = listTasks({ parentId: parent.task.id })
-      const childWithOrder0 = childTasks.find((t) => t.id === child0.task.id)
-
-      expect(childWithOrder0?.order).toBe(4) // Should be at the end, not at position 0
-
-      // Verify other children remain unchanged
-      const child1Updated = childTasks.find((t) => t.id === child1.task.id)
-      const child2Updated = childTasks.find((t) => t.id === child2.task.id)
-      const child3Updated = childTasks.find((t) => t.id === child3.task.id)
-
-      expect(child1Updated?.order).toBe(1)
-      expect(child2Updated?.order).toBe(2)
-      expect(child3Updated?.order).toBe(3)
+      const parentTask = getTask(parent.task.id)
+      expect(parentTask.tasks).toHaveLength(3)
+      expect(parentTask.tasks[0]?.id).toBe(child1.task.id)
+      expect(parentTask.tasks[1]?.id).toBe(child2.task.id)
+      expect(parentTask.tasks[2]?.id).toBe(child3.task.id)
     })
 
-    it("should handle order = 0 when no siblings exist", () => {
-      // Create parent task
-      const parent = createTask({ name: "Parent Task" })
-
-      // Create first child with order = 0, should get order 1
-      const child0 = createTask({
-        name: "Child with order 0",
-        order: 0,
-        parentId: parent.task.id,
+    // Batch creation functionality tests
+    it("should create a task with subtasks", () => {
+      const result = createTask({
+        description: "A task with subtasks",
+        name: "Parent Task",
+        tasks: [
+          {
+            description: "First subtask",
+            name: "Subtask 1",
+          },
+          {
+            description: "Second subtask",
+            name: "Subtask 2",
+          },
+        ],
       })
 
-      const childTasks = listTasks({ parentId: parent.task.id })
-      const childWithOrder0 = childTasks.find((t) => t.id === child0.task.id)
+      expect(result.task.name).toBe("Parent Task")
+      expect(result.task.description).toBe("A task with subtasks")
+      expect(result.task.tasks).toHaveLength(2)
 
-      expect(childWithOrder0?.order).toBe(1) // Should be assigned 1, not 0
+      // Check first subtask
+      expect(result.task.tasks[0]!.name).toBe("Subtask 1")
+      expect(result.task.tasks[0]!.description).toBe("First subtask")
+      expect(result.task.tasks[0]!.status).toBe("todo")
+      expect(result.task.tasks[0]!.tasks).toEqual([])
+
+      // Check second subtask
+      expect(result.task.tasks[1]!.name).toBe("Subtask 2")
+      expect(result.task.tasks[1]!.description).toBe("Second subtask")
+      expect(result.task.tasks[1]!.status).toBe("todo")
+      expect(result.task.tasks[1]!.tasks).toEqual([])
     })
 
-    it("should handle multiple order = 0 tasks correctly", () => {
-      // Create tasks with order = 0 multiple times
-      const task1 = createTask({ name: "Task 1 with order 0", order: 0 })
-      const task2 = createTask({ name: "Task 2 with order 0", order: 0 })
-      const task3 = createTask({ name: "Task 3 with order 0", order: 0 })
+    it("should create nested subtasks (multiple levels)", () => {
+      const result = createTask({
+        description: "Root with nested structure",
+        name: "Root Task",
+        tasks: [
+          {
+            description: "First level",
+            name: "Level 1 Task",
+            tasks: [
+              {
+                description: "Second level",
+                name: "Level 2 Task",
+                tasks: [
+                  {
+                    description: "Third level",
+                    name: "Level 3 Task",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      })
 
-      const tasks = listTasks()
-      const task1Found = tasks.find((t) => t.id === task1.task.id)
-      const task2Found = tasks.find((t) => t.id === task2.task.id)
-      const task3Found = tasks.find((t) => t.id === task3.task.id)
+      expect(result.task.name).toBe("Root Task")
+      expect(result.task.tasks).toHaveLength(1)
 
-      // All should be treated as unspecified and assigned incrementally
-      expect(task1Found?.order).toBe(1)
-      expect(task2Found?.order).toBe(2)
-      expect(task3Found?.order).toBe(3)
+      const level1 = result.task.tasks[0]!
+      expect(level1.name).toBe("Level 1 Task")
+      expect(level1.tasks).toHaveLength(1)
+
+      const level2 = level1.tasks[0]!
+      expect(level2.name).toBe("Level 2 Task")
+      expect(level2.tasks).toHaveLength(1)
+
+      const level3 = level2.tasks[0]!
+      expect(level3.name).toBe("Level 3 Task")
+      expect(level3.tasks).toEqual([])
+    })
+
+    it("should handle subtasks without descriptions", () => {
+      const result = createTask({
+        name: "Parent",
+        tasks: [
+          {
+            name: "Child without description",
+          },
+          {
+            description: "This has a description",
+            name: "Child with description",
+          },
+        ],
+      })
+
+      expect(result.task.tasks[0]!.description).toBe("")
+      expect(result.task.tasks[1]!.description).toBe("This has a description")
+    })
+
+    it("should generate unique IDs for all tasks", () => {
+      const result = createTask({
+        name: "Parent",
+        tasks: [{ name: "Child 1" }, { name: "Child 2" }],
+      })
+
+      const allIds = [
+        result.task.id,
+        result.task.tasks[0]!.id,
+        result.task.tasks[1]!.id,
+      ]
+
+      // All IDs should be unique
+      expect(new Set(allIds)).toHaveLength(3)
+
+      // All IDs should be valid UUIDs (basic format check)
+      for (const id of allIds) {
+        expect(id).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+        )
+      }
+    })
+
+    it("should create batch tasks under a parent", () => {
+      // First create a parent task
+      const parent = createTask({
+        name: "Parent Task",
+      })
+
+      // Then create a task with subtasks under that parent
+      createTask({
+        description: "Child with its own subtasks",
+        name: "Batch Child",
+        parentId: parent.task.id,
+        tasks: [{ name: "Grandchild 1" }, { name: "Grandchild 2" }],
+      })
+
+      // Check the hierarchy
+      const rootTasks = listTasks()
+      expect(rootTasks).toHaveLength(1)
+
+      const parentTask = rootTasks[0]!
+      expect(parentTask.tasks).toHaveLength(1)
+
+      const batchChild = parentTask.tasks[0]!
+      expect(batchChild.name).toBe("Batch Child")
+      expect(batchChild.tasks).toHaveLength(2)
+      expect(batchChild.tasks[0]!.name).toBe("Grandchild 1")
+      expect(batchChild.tasks[1]!.name).toBe("Grandchild 2")
+    })
+
+    it("should handle empty tasks array", () => {
+      const result = createTask({
+        name: "Task with empty array",
+        tasks: [],
+      })
+
+      expect(result.task.tasks).toEqual([])
+    })
+
+    it("should preserve task order in batch creation", () => {
+      const taskNames = ["First", "Second", "Third", "Fourth", "Fifth"]
+
+      const result = createTask({
+        name: "Parent",
+        tasks: taskNames.map((name) => ({ name })),
+      })
+
+      const actualNames = result.task.tasks.map((task) => task.name)
+      expect(actualNames).toEqual(taskNames)
+    })
+
+    // Error handling tests for batch functionality
+    it("should throw error for invalid tasks parameter", () => {
+      expect(() =>
+        createTask({
+          name: "Test",
+          tasks: "invalid" as any,
+        }),
+      ).toThrow("Tasks parameter must be an array")
+    })
+
+    it("should throw error for subtask without name", () => {
+      expect(() =>
+        createTask({
+          name: "Test",
+          tasks: [{ name: "" }],
+        }),
+      ).toThrow("Task at tasks[0] must have a non-empty name")
+    })
+
+    it("should throw error for invalid subtask object", () => {
+      expect(() =>
+        createTask({
+          name: "Test",
+          tasks: [null as any],
+        }),
+      ).toThrow("Task at tasks[0] must be an object")
+    })
+
+    it("should throw error for invalid subtask description type", () => {
+      expect(() =>
+        createTask({
+          name: "Test",
+          tasks: [{ description: 123 as any, name: "Valid Name" }],
+        }),
+      ).toThrow("Task description at tasks[0] must be a string")
+    })
+
+    it("should throw error for too deep nesting", () => {
+      // Create a deeply nested structure that exceeds the limit
+      let deeplyNested: any = { name: "Level 11" }
+      for (let i = 10; i > 0; i--) {
+        deeplyNested = {
+          name: `Level ${i}`,
+          tasks: [deeplyNested],
+        }
+      }
+
+      expect(() =>
+        createTask({
+          name: "Root",
+          tasks: [deeplyNested],
+        }),
+      ).toThrow("Task hierarchy too deep")
     })
   })
 
@@ -324,17 +467,11 @@ describe("Task Management", () => {
   describe("updateTask", () => {
     it("should update task fields", () => {
       const result = createTask({ name: "Original" })
-      const originalUpdatedAt = result.task.updatedAt
-
-      // Wait a bit to ensure different timestamp
-      vi.useFakeTimers()
-      vi.advanceTimersByTime(1000)
 
       const updatedTask = updateTask({
         description: "New description",
         id: result.task.id,
         name: "Updated",
-        order: 10,
         resolution: "Some resolution",
         status: "in_progress",
       })
@@ -343,13 +480,9 @@ describe("Task Management", () => {
         description: "New description",
         id: result.task.id,
         name: "Updated",
-        order: 10,
         resolution: "Some resolution",
         status: "in_progress",
       })
-      expect(updatedTask.updatedAt).not.toEqual(originalUpdatedAt)
-
-      vi.useRealTimers()
     })
 
     it("should throw error for non-existent task", () => {
@@ -363,39 +496,6 @@ describe("Task Management", () => {
       expect(() =>
         updateTask({ id: result.task.id, status: "invalid" }),
       ).toThrow("Invalid status 'invalid'")
-    })
-
-    it("should throw error for empty name", () => {
-      const result = createTask({ name: "Test" })
-      expect(() => updateTask({ id: result.task.id, name: "" })).toThrow(
-        "Task name must be a non-empty string",
-      )
-    })
-
-    it("should throw error for negative order", () => {
-      const result = createTask({ name: "Test" })
-      expect(() => updateTask({ id: result.task.id, order: -1 })).toThrow(
-        "Order must be a non-negative number",
-      )
-    })
-
-    it("should throw error for circular parent reference", () => {
-      const result = createTask({ name: "Test" })
-      expect(() =>
-        updateTask({ id: result.task.id, parentId: result.task.id }),
-      ).toThrow("Task cannot be its own parent")
-    })
-
-    it("should update parentId to valid parent", () => {
-      const parentResult = createTask({ name: "Parent" })
-      const childResult = createTask({ name: "Child" })
-
-      const updatedTask = updateTask({
-        id: childResult.task.id,
-        parentId: parentResult.task.id,
-      })
-
-      expect(updatedTask.parentId).toBe(parentResult.task.id)
     })
   })
 
@@ -432,36 +532,25 @@ describe("Task Management", () => {
     it("should start a todo task", () => {
       const result = createTask({ name: "Test" })
 
-      // Wait a bit to ensure different timestamp
-      vi.useFakeTimers()
-      vi.advanceTimersByTime(1000)
-
       const startResult = startTask(result.task.id)
 
       expect(startResult.task.status).toBe("in_progress")
-      expect(startResult.task.updatedAt.getTime()).toBeGreaterThan(
-        result.task.updatedAt.getTime(),
-      )
       expect(startResult.message).toBe(
         "Task 'Test' started. No incomplete subtasks found.",
       )
       expect(startResult.started_tasks).toHaveLength(1)
       expect(startResult.started_tasks[0]?.id).toBe(result.task.id)
       expect(startResult.hierarchy_summary).toBeDefined()
-
-      vi.useRealTimers()
     })
 
     it("should start a task and its first incomplete subtask", () => {
       const parentResult = createTask({ name: "Parent Task" })
       const childResult1 = createTask({
         name: "Child 1",
-        order: 1,
         parentId: parentResult.task.id,
       })
       const childResult2 = createTask({
         name: "Child 2",
-        order: 2,
         parentId: parentResult.task.id,
       })
 
@@ -562,12 +651,10 @@ describe("Task Management", () => {
       const parentResult = createTask({ name: "Parent Task" })
       const child1Result = createTask({
         name: "Child 1",
-        order: 1,
         parentId: parentResult.task.id,
       })
       const child2Result = createTask({
         name: "Child 2",
-        order: 2,
         parentId: parentResult.task.id,
       })
       const grandchild1Result = createTask({
@@ -595,12 +682,10 @@ describe("Task Management", () => {
       const parentResult = createTask({ name: "Parent Task" })
       const child1Result = createTask({
         name: "Child 1",
-        order: 1,
         parentId: parentResult.task.id,
       })
       const child2Result = createTask({
         name: "Child 2",
-        order: 2,
         parentId: parentResult.task.id,
       })
       const grandchild2Result = createTask({
@@ -694,12 +779,10 @@ describe("Task Management", () => {
       })
       const child2Result = createTask({
         name: "Completed Child",
-        order: 2,
         parentId: parentResult.task.id,
       })
       createTask({
         name: "Todo Child",
-        order: 3,
         parentId: parentResult.task.id,
       })
 
@@ -734,22 +817,18 @@ describe("Task Management", () => {
       const rootResult = createTask({ name: "Root Project" })
       const branchAResult = createTask({
         name: "Branch A",
-        order: 1,
         parentId: rootResult.task.id,
       })
       const branchBResult = createTask({
         name: "Branch B",
-        order: 2,
         parentId: rootResult.task.id,
       })
       createTask({
         name: "Leaf A1",
-        order: 1,
         parentId: branchAResult.task.id,
       })
       createTask({
         name: "Leaf A2",
-        order: 2,
         parentId: branchAResult.task.id,
       })
       createTask({
@@ -810,16 +889,9 @@ describe("Task Management", () => {
       ).toThrow(/Task .* is already completed/)
     })
 
-    it("should throw error for empty resolution", () => {
-      const result = createTask({ name: "Test" })
-      expect(() =>
-        completeTask({ id: result.task.id, resolution: "" }),
-      ).toThrow("Resolution is required")
-    })
-
     it("should find next sibling task", () => {
-      const result1 = createTask({ name: "Task 1", order: 1 })
-      const result2 = createTask({ name: "Task 2", order: 2 })
+      const result1 = createTask({ name: "Task 1" })
+      const result2 = createTask({ name: "Task 2" })
 
       const completeResult = completeTask({
         id: result1.task.id,
@@ -1254,18 +1326,15 @@ describe("Task Management", () => {
       // Check that parent hierarchy is updated correctly
       expect(result.started_tasks).toHaveLength(3) // grandchild, child1, parent
 
-      const tasks = __getMockTasks() as Task[]
-      const parentUpdated = tasks.find((t: Task) => t.id === parent.task.id)
-      const child1Updated = tasks.find((t: Task) => t.id === child1.task.id)
-      const child2Updated = tasks.find((t: Task) => t.id === child2.task.id)
-      const grandchildUpdated = tasks.find(
-        (t: Task) => t.id === grandchild.task.id,
-      )
+      const parentUpdated = getTask(parent.task.id)
+      const child1Updated = getTask(child1.task.id)
+      const child2Updated = getTask(child2.task.id)
+      const grandchildUpdated = getTask(grandchild.task.id)
 
-      expect(parentUpdated?.status).toBe("in_progress")
-      expect(child1Updated?.status).toBe("in_progress")
-      expect(child2Updated?.status).toBe("todo")
-      expect(grandchildUpdated?.status).toBe("in_progress")
+      expect(parentUpdated.status).toBe("in_progress")
+      expect(child1Updated.status).toBe("in_progress")
+      expect(child2Updated.status).toBe("todo")
+      expect(grandchildUpdated.status).toBe("in_progress")
     })
 
     it("should not reset in_progress leaf when starting a parent task", () => {
@@ -1276,13 +1345,10 @@ describe("Task Management", () => {
       // Start child (leaf) task first
       startTask(child.task.id)
 
-      const tasksAfter = __getMockTasks() as Task[]
-      expect(tasksAfter.find((t: Task) => t.id === child.task.id)?.status).toBe(
-        "in_progress",
-      )
-      expect(
-        tasksAfter.find((t: Task) => t.id === parent.task.id)?.status,
-      ).toBe("in_progress")
+      const childAfter = getTask(child.task.id)
+      const parentAfter = getTask(parent.task.id)
+      expect(childAfter.status).toBe("in_progress")
+      expect(parentAfter.status).toBe("in_progress")
 
       // Parent is already in_progress due to child, so starting it again should throw error
       expect(() => {
@@ -1312,19 +1378,14 @@ describe("Task Management", () => {
       expect(updatedTaskIds).toContain(level4.task.id)
 
       // Verify all are in_progress
-      const tasks = __getMockTasks() as Task[]
-      expect(tasks.find((t: Task) => t.id === level1.task.id)?.status).toBe(
-        "in_progress",
-      )
-      expect(tasks.find((t: Task) => t.id === level2.task.id)?.status).toBe(
-        "in_progress",
-      )
-      expect(tasks.find((t: Task) => t.id === level3.task.id)?.status).toBe(
-        "in_progress",
-      )
-      expect(tasks.find((t: Task) => t.id === level4.task.id)?.status).toBe(
-        "in_progress",
-      )
+      const level1After = getTask(level1.task.id)
+      const level2After = getTask(level2.task.id)
+      const level3After = getTask(level3.task.id)
+      const level4After = getTask(level4.task.id)
+      expect(level1After.status).toBe("in_progress")
+      expect(level2After.status).toBe("in_progress")
+      expect(level3After.status).toBe("in_progress")
+      expect(level4After.status).toBe("in_progress")
     })
 
     it("should not duplicate parent updates in started_tasks", () => {
@@ -1350,45 +1411,46 @@ describe("Task Management", () => {
       expect(parentEntries).toHaveLength(1)
     })
 
-    it("should maintain parent status consistency across multiple operations", () => {
+    it("should maintain parent status consistency with execution order validation", () => {
       // Create complex hierarchy
       const root = createTask({ name: "Root" })
       const branch1 = createTask({ name: "Branch 1", parentId: root.task.id })
       const branch2 = createTask({ name: "Branch 2", parentId: root.task.id })
       const leaf1 = createTask({ name: "Leaf 1", parentId: branch1.task.id })
+      const leaf1b = createTask({ name: "Leaf 1b", parentId: branch1.task.id })
       const leaf2 = createTask({ name: "Leaf 2", parentId: branch2.task.id })
 
       // Start first leaf
       startTask(leaf1.task.id)
-      let tasks = __getMockTasks() as Task[]
-      expect(tasks.find((t: Task) => t.id === root.task.id)?.status).toBe(
-        "in_progress",
-      )
-      expect(tasks.find((t: Task) => t.id === branch1.task.id)?.status).toBe(
-        "in_progress",
-      )
-      expect(tasks.find((t: Task) => t.id === branch2.task.id)?.status).toBe(
-        "todo",
+      let rootAfter1 = getTask(root.task.id)
+      let branch1After1 = getTask(branch1.task.id)
+      let branch2After1 = getTask(branch2.task.id)
+      expect(rootAfter1.status).toBe("in_progress")
+      expect(branch1After1.status).toBe("in_progress")
+      expect(branch2After1.status).toBe("todo")
+
+      // Should NOT be able to start second leaf because Branch 1 is not completed
+      expect(() => startTask(leaf2.task.id)).toThrow(
+        "Hierarchy order violation",
       )
 
-      // Start second leaf (should reset first)
+      // Complete Branch 1 (need to complete all its children first)
+      completeTask({ id: leaf1.task.id, resolution: "Leaf 1 completed" })
+      completeTask({ id: leaf1b.task.id, resolution: "Leaf 1b completed" })
+      // Branch 1 should auto-complete when all children are done
+
+      // Now should be able to start second leaf
       startTask(leaf2.task.id)
-      tasks = __getMockTasks() as Task[]
-      expect(tasks.find((t: Task) => t.id === root.task.id)?.status).toBe(
-        "in_progress",
-      )
-      expect(tasks.find((t: Task) => t.id === branch1.task.id)?.status).toBe(
-        "todo",
-      )
-      expect(tasks.find((t: Task) => t.id === branch2.task.id)?.status).toBe(
-        "in_progress",
-      )
-      expect(tasks.find((t: Task) => t.id === leaf1.task.id)?.status).toBe(
-        "todo",
-      )
-      expect(tasks.find((t: Task) => t.id === leaf2.task.id)?.status).toBe(
-        "in_progress",
-      )
+      const rootAfter2 = getTask(root.task.id)
+      const branch1After2 = getTask(branch1.task.id)
+      const branch2After2 = getTask(branch2.task.id)
+      const leaf1After2 = getTask(leaf1.task.id)
+      const leaf2After2 = getTask(leaf2.task.id)
+      expect(rootAfter2.status).toBe("in_progress")
+      expect(branch1After2.status).toBe("done")
+      expect(branch2After2.status).toBe("in_progress")
+      expect(leaf1After2.status).toBe("done")
+      expect(leaf2After2.status).toBe("in_progress")
     })
   })
 

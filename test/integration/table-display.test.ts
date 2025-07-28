@@ -12,12 +12,12 @@ describe("Table Display Integration Tests", () => {
     await setupMCPConnection()
   })
 
-  beforeEach(async () => {
-    await clearAllTasks()
+  beforeEach(() => {
+    clearAllTasks()
   })
 
-  afterAll(async () => {
-    await clearAllTasks()
+  afterAll(() => {
+    clearAllTasks()
   })
 
   describe("Progress Table Display", () => {

@@ -1,4 +1,5 @@
 import { z } from "zod"
+import type { TaskInput } from "./task.js"
 import { server } from "./server.js"
 import {
   completeTask,
@@ -14,39 +15,61 @@ import {
  * Register all task management tools with the MCP server
  */
 export function registerTools(): void {
+  // Define recursive TaskInput schema
+  const TaskInputSchema: z.ZodType<TaskInput> = z.lazy(() =>
+    z.object({
+      description: z.string().optional(),
+      name: z.string(),
+      tasks: z.array(TaskInputSchema).optional(),
+    }),
+  )
+
   // Register createTask tool
   server.registerTool(
     "createTask",
     {
       description:
-        "Create a new task with optional parent and ordering.\n\n" +
+        "Create a new task with optional parent and index positioning.\n\n" +
         "This tool initiates a new workflow for handling user requests. The workflow is as follows:\n" +
-        "1. Create tasks with the provided name and optional description. It is structured as a root task and subtasks to achieve it. Subtasks can be created by specifying parentId.\n" +
-        "2. After task creation, you MUST call the `startTask` tool to begin processing the task.\n" +
-        "3. When the task is completed, call the `completeTask` tool with the task ID and resolution details.\n" +
-        "4. If the following task is assigned, execute it by calling the `startTask` tool again.\n" +
-        "5. Repeat this cycle until all tasks are completed.",
+        "1. Create tasks with the provided name and optional description. Tasks are organized in a hierarchical structure where subtasks can be created by specifying parentId.\n" +
+        "2. Tasks are ordered by their position in the parent's tasks array. Use insertIndex to specify position (defaults to end).\n" +
+        "3. After task creation, you MUST call the `startTask` tool to begin processing the task.\n" +
+        "4. When the task is completed, call the `completeTask` tool with the task ID and resolution details.\n" +
+        "5. If the following task is assigned, execute it by calling the `startTask` tool again.\n" +
+        "6. Repeat this cycle until all tasks are completed.",
       inputSchema: {
         description: z
           .string()
           .describe("Task description (optional)")
           .optional(),
-        name: z.string().describe("Task name (required)"),
-        order: z
+        insertIndex: z
           .number()
           .describe(
-            "Order within siblings (optional, if not specified, it will be added to the end by default.)",
+            "Index position within parent's tasks array (optional, defaults to end of array)",
           )
           .optional(),
+        name: z.string().describe("Task name (required)"),
         parentId: z
           .string()
           .describe("Parent task ID for hierarchical organization (optional)")
+          .optional(),
+        tasks: z
+          .array(TaskInputSchema)
+          .describe("Array of subtasks to create simultaneously (optional)")
           .optional(),
       },
     },
     (args) => {
       try {
-        const result = createTask(args)
+        const result = createTask(
+          args as {
+            description?: string
+            insertIndex?: number
+            name: string
+            parentId?: string
+            tasks?: TaskInput[]
+          },
+        )
         return {
           content: [
             {
@@ -127,11 +150,14 @@ export function registerTools(): void {
   server.registerTool(
     "listTasks",
     {
-      description: "List tasks, optionally filtered by parentId",
+      description:
+        "List tasks from hierarchical structure, optionally filtered by parentId. Returns root tasks if no parentId specified, or direct children of specified parent task.",
       inputSchema: {
         parentId: z
           .string()
-          .describe("Filter tasks by parent ID (optional)")
+          .describe(
+            "Filter tasks by parent ID to get direct children (optional, returns root tasks if not specified)",
+          )
           .optional(),
       },
     },
@@ -182,14 +208,6 @@ export function registerTools(): void {
           .optional(),
         id: z.string().describe("Task ID"),
         name: z.string().describe("Updated task name (optional)").optional(),
-        order: z
-          .number()
-          .describe("Updated order within siblings (optional)")
-          .optional(),
-        parentId: z
-          .string()
-          .describe("Updated parent task ID (optional)")
-          .optional(),
         resolution: z
           .string()
           .describe("Task resolution details (optional)")
@@ -202,7 +220,15 @@ export function registerTools(): void {
     },
     (args) => {
       try {
-        const task = updateTask(args)
+        const task = updateTask(
+          args as {
+            description?: string
+            id: string
+            name?: string
+            resolution?: string
+            status?: string
+          },
+        )
         return {
           content: [
             {
@@ -347,7 +373,7 @@ export function registerTools(): void {
     },
     (args) => {
       try {
-        const result = completeTask(args)
+        const result = completeTask(args as { id: string; resolution: string })
         return {
           content: [
             {
