@@ -1,5 +1,15 @@
 # task-orchestrator-mcp
 
+## 1.0.0
+
+### Major Changes
+
+- [#20](https://github.com/108yen/task-orchestrator-mcp/pull/20) [`d0b256a`](https://github.com/108yen/task-orchestrator-mcp/commit/d0b256a3e832c55695f75d837c80216cbf8a5b47) Thanks [@108yen](https://github.com/108yen)! - Release v1.
+
+### Minor Changes
+
+- [#16](https://github.com/108yen/task-orchestrator-mcp/pull/16) [`318bb54`](https://github.com/108yen/task-orchestrator-mcp/commit/318bb54247b71fb5ff92068181e36458b3d1cbbe) Thanks [@108yen](https://github.com/108yen)! - Change data structure.
+
 ## 0.1.1
 
 ### Minor Changes
