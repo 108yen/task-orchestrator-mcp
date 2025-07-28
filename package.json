@@ -28,7 +28,8 @@
   "keywords": [
     "mcp",
     "task",
-    "orchestrator"
+    "orchestrator",
+    "task-manager"
   ],
   "author": "108yen",
   "license": "MIT",

@@ -51,7 +51,7 @@ Optionally, you can add it to a file called `.vscode/mcp.json` in your workspace
 ```json
 {
   "servers": {
-    "canary": {
+    "task-orchestrator-mcp": {
       "command": "npx",
       "args": ["-y", "task-orchestrator-mcp"]
     }
