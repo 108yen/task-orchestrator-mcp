@@ -742,6 +742,8 @@ export function startTask(id: string): {
     }
   }
 
+  message += `\nWhen the task is finished, please run 'completeTask' to complete it.`
+
   writeTasks(tasks)
 
   // Generate hierarchy summary with changed task IDs

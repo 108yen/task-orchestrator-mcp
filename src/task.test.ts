@@ -536,7 +536,7 @@ describe("Task Management", () => {
 
       expect(startResult.task.status).toBe("in_progress")
       expect(startResult.message).toBe(
-        "Task 'Test' started. No incomplete subtasks found.",
+        "Task 'Test' started. No incomplete subtasks found.\nWhen the task is finished, please run 'completeTask' to complete it.",
       )
       expect(startResult.started_tasks).toHaveLength(1)
       expect(startResult.started_tasks[0]?.id).toBe(result.task.id)
@@ -565,6 +565,9 @@ describe("Task Management", () => {
       expect(startResult.message).toContain(
         "Direct subtask 'Child 1' also started automatically",
       )
+      expect(startResult.message).toContain(
+        "When the task is finished, please run 'completeTask' to complete it.",
+      )
 
       // Verify child 2 is still todo
       const child2 = getTask(childResult2.task.id)
@@ -590,7 +593,7 @@ describe("Task Management", () => {
       expect(startResult.task.status).toBe("in_progress")
       expect(startResult.started_tasks).toHaveLength(1) // Only parent task
       expect(startResult.message).toBe(
-        "Task 'Parent Task' started. No incomplete subtasks found.",
+        "Task 'Parent Task' started. No incomplete subtasks found.\nWhen the task is finished, please run 'completeTask' to complete it.",
       )
     })
 

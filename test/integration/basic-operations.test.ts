@@ -446,6 +446,9 @@ describe("Basic CRUD Operations Integration Tests", () => {
         ...createdTask,
         status: "in_progress",
       })
+      expect(response.message).toBe(
+        "Task 'task to start' started. No incomplete subtasks found.\nWhen the task is finished, please run 'completeTask' to complete it.",
+      )
     })
   })
 
