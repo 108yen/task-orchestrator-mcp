@@ -36,7 +36,14 @@ interface Task {
   description: string // タスクの詳細な説明
   status: string // タスクの進捗状況（'todo', 'in_progress', 'done'）
   resolution?: string // タスク完了時の状態や結果（未完了時はundefined）
+  completion_criteria?: string // タスクの完了条件
+  constraints?: string // タスク実行上の制約
   tasks: Task[] // サブタスクの配列（ネストした階層構造、配列の順序が実行順序）
+}
+
+interface AggregatedCriteria {
+  completion_criteria: string[] // 階層全体の完了条件を集約した配列
+  constraints: string[] // 階層全体の制約を集約した配列
 }
 
 interface ProgressSummary {
@@ -76,15 +83,15 @@ interface HierarchySummaryRow {
 
 ### MCPツールインターフェース
 
-| 機能           | ツール名       | 入力パラメータ                                                                                    | 出力                                                                                                              |
-| :------------- | :------------- | :------------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------- |
-| **タスク作成** | `createTask`   | `{ name: string, description?: string, tasks?: Task[], parentId?: string, insertIndex?: number }` | `{ task: Task, message?: string }`                                                                                |
-| **タスク取得** | `getTask`      | `{ id: string }`                                                                                  | `{ task: Task }`                                                                                                  |
-| **タスク一覧** | `listTasks`    | `{ parentId?: string }`                                                                           | `{ tasks: Task[] }`                                                                                               |
-| **タスク更新** | `updateTask`   | `{ id: string, name?: string, description?: string, status?: string, ... }`                       | `{ task: Task }`                                                                                                  |
-| **タスク削除** | `deleteTask`   | `{ id: string }`                                                                                  | `{ id: string }`                                                                                                  |
-| **タスク開始** | `startTask`    | `{ id: string }`                                                                                  | `{ task: Task, started_tasks: Task[], message?: string, hierarchy_summary?: string }`                             |
-| **タスク完了** | `completeTask` | `{ id: string, resolution: string }`                                                              | `{ next_task_id?: string, message: string, progress_summary?: ProgressSummary, auto_completed_parents?: Task[] }` |
+| 機能           | ツール名       | 入力パラメータ                                                                                                                                        | 出力                                                                                                                            |
+| :------------- | :------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------ |
+| **タスク作成** | `createTask`   | `{ name: string, description?: string, tasks?: Task[], parentId?: string, insertIndex?: number, completion_criteria?: string, constraints?: string }` | `{ task: Task, message?: string }`                                                                                              |
+| **タスク取得** | `getTask`      | `{ id: string }`                                                                                                                                      | `{ task: Task }`                                                                                                                |
+| **タスク一覧** | `listTasks`    | `{ parentId?: string }`                                                                                                                               | `{ tasks: Task[] }`                                                                                                             |
+| **タスク更新** | `updateTask`   | `{ id: string, name?: string, description?: string, status?: string, ... }`                                                                           | `{ task: Task }`                                                                                                                |
+| **タスク削除** | `deleteTask`   | `{ id: string }`                                                                                                                                      | `{ id: string }`                                                                                                                |
+| **タスク開始** | `startTask`    | `{ id: string }`                                                                                                                                      | `{ task: Task, started_tasks: Task[], message?: string, hierarchy_summary?: string, aggregated_criteria?: AggregatedCriteria }` |
+| **タスク完了** | `completeTask` | `{ id: string, resolution: string }`                                                                                                                  | `{ next_task_id?: string, message: string, progress_summary?: ProgressSummary, auto_completed_parents?: Task[] }`               |
 
 #### タスク作成時の配列挿入ロジック
 
