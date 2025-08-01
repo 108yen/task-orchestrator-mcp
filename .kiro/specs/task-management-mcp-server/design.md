@@ -36,7 +36,14 @@ interface Task {
   description: string // タスクの詳細な説明
   status: string // タスクの進捗状況（'todo', 'in_progress', 'done'）
   resolution?: string // タスク完了時の状態や結果（未完了時はundefined）
+  completion_criteria?: string // タスクの完了条件
+  constraints?: string // タスク実行上の制約
   tasks: Task[] // サブタスクの配列（ネストした階層構造、配列の順序が実行順序）
+}
+
+interface AggregatedCriteria {
+  completion_criteria: string[] // 階層全体の完了条件を集約した配列
+  constraints: string[] // 階層全体の制約を集約した配列
 }
 
 interface ProgressSummary {
@@ -76,15 +83,15 @@ interface HierarchySummaryRow {
 
 ### MCPツールインターフェース
 
-| 機能           | ツール名       | 入力パラメータ                                                                                    | 出力                                                                                                              |
-| :------------- | :------------- | :------------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------- |
-| **タスク作成** | `createTask`   | `{ name: string, description?: string, tasks?: Task[], parentId?: string, insertIndex?: number }` | `{ task: Task, message?: string }`                                                                                |
-| **タスク取得** | `getTask`      | `{ id: string }`                                                                                  | `{ task: Task }`                                                                                                  |
-| **タスク一覧** | `listTasks`    | `{ parentId?: string }`                                                                           | `{ tasks: Task[] }`                                                                                               |
-| **タスク更新** | `updateTask`   | `{ id: string, name?: string, description?: string, status?: string, ... }`                       | `{ task: Task }`                                                                                                  |
-| **タスク削除** | `deleteTask`   | `{ id: string }`                                                                                  | `{ id: string }`                                                                                                  |
-| **タスク開始** | `startTask`    | `{ id: string }`                                                                                  | `{ task: Task, started_tasks: Task[], message?: string, hierarchy_summary?: string }`                             |
-| **タスク完了** | `completeTask` | `{ id: string, resolution: string }`                                                              | `{ next_task_id?: string, message: string, progress_summary?: ProgressSummary, auto_completed_parents?: Task[] }` |
+| 機能           | ツール名       | 入力パラメータ                                                                                                                                        | 出力                                                                                                                            |
+| :------------- | :------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------ |
+| **タスク作成** | `createTask`   | `{ name: string, description?: string, tasks?: Task[], parentId?: string, insertIndex?: number, completion_criteria?: string, constraints?: string }` | `{ task: Task, message?: string }`                                                                                              |
+| **タスク取得** | `getTask`      | `{ id: string }`                                                                                                                                      | `{ task: Task }`                                                                                                                |
+| **タスク一覧** | `listTasks`    | `{ parentId?: string }`                                                                                                                               | `{ tasks: Task[] }`                                                                                                             |
+| **タスク更新** | `updateTask`   | `{ id: string, name?: string, description?: string, status?: string, ... }`                                                                           | `{ task: Task }`                                                                                                                |
+| **タスク削除** | `deleteTask`   | `{ id: string }`                                                                                                                                      | `{ id: string }`                                                                                                                |
+| **タスク開始** | `startTask`    | `{ id: string }`                                                                                                                                      | `{ task: Task, started_tasks: Task[], message?: string, hierarchy_summary?: string, aggregated_criteria?: AggregatedCriteria }` |
+| **タスク完了** | `completeTask` | `{ id: string, resolution: string }`                                                                                                                  | `{ next_task_id?: string, message: string, progress_summary?: ProgressSummary, auto_completed_parents?: Task[] }`               |
 
 #### タスク作成時の配列挿入ロジック
 
@@ -111,7 +118,7 @@ interface HierarchySummaryRow {
 - **親ノードステータス更新**: タスク開始時、そのタスクの全ての親ノード（タスク階層をルートまで遡って）のステータスを'in_progress'に更新
 - **ネストサブタスク自動開始**: そのタスクの `tasks` 配列にサブタスクがある場合、再帰的に最も深いネストレベルにある完了していない最初のサブタスク（配列の先頭から順序）を特定し、そのタスクまでの中間階層のステータスもすべて'in_progress'に変更
 - **階層管理**: 途中の階層のタスクも含めて、実行パス上のすべてのタスクのステータスを更新
-- **レスポンス拡張**: 開始されたサブタスクがある場合、メインタスクと最深サブタスクの両方の情報、自動開始されたことを示すメッセージ、および現在のタスク階層構造サマリーを返す
+- **レスポンス拡張**: 開始されたサブタスクがある場合、メインタスクと最深サブタスクの両方の情報、自動開始されたことを示すメッセージ、および現在のタスク階層構造サマリーを返す。また、タスクが開始されたことをユーザーに通知し、タスク完了後には`completeTask`を実行するよう促すメッセージを返す
 - **階層構造表示**: エージェントがタスクの階層構造と現在の実行状況を把握できるよう、すべてのタスクのデータを含む階層構造をテーブル形式で表示。テーブルには「Status Changed」列を追加し、その操作でステータスが変更されたタスクを明示的に示す。また「Parent Task」列を追加し、各タスクの親タスク名を表示する
 - **in_progressステータス制約**: システム全体で、末端ノード（サブタスクを持たないタスク、すなわち `tasks` 配列が空のタスク）のうち一つだけが'in_progress'ステータスを持つことを許可。親ノードは子ノードが'in_progress'の場合に限り'in_progress'ステータスになる
 

@@ -4,57 +4,59 @@ import { existsSync, readFileSync, writeFileSync } from "fs"
  * Hierarchy summary interface for task structure reporting
  */
 export interface HierarchySummary {
-  table: string // マークダウン形式の階層テーブル文字列
+  table: string // Hierarchical table string in markdown format
 }
 
 /**
  * Hierarchy summary row interface for task structure display
  */
 export interface HierarchySummaryRow {
-  name: string // タスク名
-  parent_name?: string // 親タスクの名前（トップレベルタスクの場合はundefined）
-  progress: string // 進捗率（例: "20%", "100%", "-"）
-  status: string // ステータス
-  status_changed: boolean // その操作でステータスが変更されたかどうか
-  subtasks: string // サブタスク情報（例: "2/5", "-"）
-  task_id: string // タスクID
+  name: string // Task name
+  parent_name?: string // Parent task name (undefined for top-level tasks)
+  progress: string // Progress rate (e.g., "20%", "100%", "-")
+  status: string // Status
+  status_changed: boolean // Whether the status was changed by the operation
+  subtasks: string // Subtask information (e.g., "2/5", "-")
+  task_id: string // Task ID
 }
 
 /**
  * Progress summary interface for task completion reporting
  */
 export interface ProgressSummary {
-  completed_tasks: number // 完了済みタスク数
-  completion_percentage: number // 完了率（0-100）
-  in_progress_tasks: number // 進行中タスク数
-  table: string // マークダウン形式のテーブル文字列
-  todo_tasks: number // 未着手タスク数
-  total_tasks: number // 全タスク数
+  completed_tasks: number // Number of completed tasks
+  completion_percentage: number // Completion rate (0-100)
+  in_progress_tasks: number // Number of in-progress tasks
+  table: string // Table string in markdown format
+  todo_tasks: number // Number of todo tasks
+  total_tasks: number // Total number of tasks
 }
 
 /**
  * Task interface representing a task in the system
  */
 export interface Task {
-  description: string // タスクの詳細な説明
-  id: string // タスクを一意に識別するためのID（UUID）
-  name: string // タスクの名称
-  resolution?: string // タスク完了時の状態や結果（未完了時はundefined）
-  status: string // タスクの進捗状況（'todo', 'in_progress', 'done'）
-  tasks: Task[] // サブタスクの配列（ネストした階層構造、配列の順序が実行順序）
+  completion_criteria?: string[] // Array of conditions for task completion
+  constraints?: string[] // Array of constraints for task execution
+  description: string // Detailed description of the task
+  id: string // Unique identifier for the task (UUID)
+  name: string // Task name
+  resolution?: string // State or result when task is completed (undefined when incomplete)
+  status: string // Task progress status ('todo', 'in_progress', 'done')
+  tasks: Task[] // Array of subtasks (nested hierarchical structure, array order is execution order)
 }
 
 /**
  * Task progress row interface for hierarchical progress display
  */
 export interface TaskProgressRow {
-  completed_subtasks: number // 完了済みサブタスク数
-  parent_name?: string // 親タスクの名前（トップレベルタスクの場合はundefined）
-  progress_percentage: number // 進捗率（0-100）
-  status: string // ステータス
-  status_changed: boolean // その操作でステータスが変更されたかどうか
-  task_name: string // タスク名
-  total_subtasks: number // 総サブタスク数
+  completed_subtasks: number // Number of completed subtasks
+  parent_name?: string // Parent task name (undefined for top-level tasks)
+  progress_percentage: number // Progress rate (0-100)
+  status: string // Status
+  status_changed: boolean // Whether the status was changed by the operation
+  task_name: string // Task name
+  total_subtasks: number // Total number of subtasks
 }
 
 // In-memory storage for when FILE_PATH is not set

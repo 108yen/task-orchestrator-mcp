@@ -18,6 +18,8 @@ export function registerTools(): void {
   // Define recursive TaskInput schema
   const TaskInputSchema: z.ZodType<TaskInput> = z.lazy(() =>
     z.object({
+      completion_criteria: z.array(z.string()).optional(),
+      constraints: z.array(z.string()).optional(),
       description: z.string().optional(),
       name: z.string(),
       tasks: z.array(TaskInputSchema).optional(),
@@ -38,6 +40,14 @@ export function registerTools(): void {
         "5. If the following task is assigned, execute it by calling the `startTask` tool again.\n" +
         "6. Repeat this cycle until all tasks are completed.",
       inputSchema: {
+        completion_criteria: z
+          .array(z.string())
+          .describe("Completion criteria for the task (optional)")
+          .optional(),
+        constraints: z
+          .array(z.string())
+          .describe("Constraints for task execution (optional)")
+          .optional(),
         description: z
           .string()
           .describe("Task description (optional)")
@@ -63,6 +73,8 @@ export function registerTools(): void {
       try {
         const result = createTask(
           args as {
+            completion_criteria?: string[]
+            constraints?: string[]
             description?: string
             insertIndex?: number
             name: string

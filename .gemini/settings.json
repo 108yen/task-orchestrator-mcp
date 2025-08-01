@@ -1,4 +1,17 @@
 {
   "autoAccept": true,
-  "contextFileName": ".gemini/GEMINI.md"
+  "contextFileName": ".gemini/GEMINI.md",
+  "mcpServers": {
+    "task-orchestrator": {
+      "command": "npx",
+      "args": ["-y", "task-orchestrator-mcp"],
+      "env": {
+        "FILE_PATH": "task.json"
+      }
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    }
+  }
 }

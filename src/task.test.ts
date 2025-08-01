@@ -345,6 +345,127 @@ describe("Task Management", () => {
       expect(result.task.tasks).toEqual([])
     })
 
+    it("should create a task with completion criteria and constraints", () => {
+      const result = createTask({
+        completion_criteria: ["Criteria 1", "Criteria 2"],
+        constraints: ["Constraint 1", "Constraint 2"],
+        description: "Task with criteria and constraints",
+        name: "Test Task",
+      })
+
+      expect(result.task).toMatchObject({
+        completion_criteria: ["Criteria 1", "Criteria 2"],
+        constraints: ["Constraint 1", "Constraint 2"],
+        description: "Task with criteria and constraints",
+        name: "Test Task",
+        status: "todo",
+      })
+      expect(result.task.id).toBeDefined()
+    })
+
+    it("should create a task with empty completion criteria and constraints", () => {
+      const result = createTask({
+        completion_criteria: [],
+        constraints: [],
+        name: "Task with empty arrays",
+      })
+
+      expect(result.task).toMatchObject({
+        completion_criteria: undefined,
+        constraints: undefined,
+        name: "Task with empty arrays",
+        status: "todo",
+      })
+    })
+
+    it("should create subtasks with completion criteria and constraints", () => {
+      const result = createTask({
+        name: "Parent Task",
+        tasks: [
+          {
+            completion_criteria: ["Sub criteria 1"],
+            constraints: ["Sub constraint 1"],
+            name: "Subtask 1",
+          },
+          {
+            name: "Subtask 2",
+          },
+        ],
+      })
+
+      expect(result.task.tasks).toHaveLength(2)
+      expect(result.task.tasks[0]!.completion_criteria).toEqual([
+        "Sub criteria 1",
+      ])
+      expect(result.task.tasks[0]!.constraints).toEqual(["Sub constraint 1"])
+      expect(result.task.tasks[1]!.completion_criteria).toBeUndefined()
+      expect(result.task.tasks[1]!.constraints).toBeUndefined()
+    })
+
+    it("should throw error for invalid completion criteria type", () => {
+      expect(() =>
+        createTask({
+          completion_criteria: "invalid" as any,
+          name: "Test",
+        }),
+      ).toThrow("Completion criteria must be an array")
+    })
+
+    it("should throw error for invalid completion criteria item type", () => {
+      expect(() =>
+        createTask({
+          completion_criteria: [123] as any,
+          name: "Test",
+        }),
+      ).toThrow("All completion criteria must be strings")
+    })
+
+    it("should throw error for invalid constraints type", () => {
+      expect(() =>
+        createTask({
+          constraints: "invalid" as any,
+          name: "Test",
+        }),
+      ).toThrow("Constraints must be an array")
+    })
+
+    it("should throw error for invalid constraints item type", () => {
+      expect(() =>
+        createTask({
+          constraints: [123] as any,
+          name: "Test",
+        }),
+      ).toThrow("All constraints must be strings")
+    })
+
+    it("should throw error for invalid subtask completion criteria", () => {
+      expect(() =>
+        createTask({
+          name: "Test",
+          tasks: [
+            {
+              completion_criteria: "invalid" as any,
+              name: "Subtask",
+            },
+          ],
+        }),
+      ).toThrow("Completion criteria at tasks[0] must be an array")
+    })
+
+    it("should throw error for invalid subtask constraints", () => {
+      expect(() =>
+        createTask({
+          name: "Test",
+          tasks: [
+            {
+              constraints: [123] as any,
+              name: "Subtask",
+            },
+          ],
+        }),
+      ).toThrow("All constraints at tasks[0] must be strings")
+    })
+
     it("should preserve task order in batch creation", () => {
       const taskNames = ["First", "Second", "Third", "Fourth", "Fifth"]
 
@@ -536,7 +657,7 @@ describe("Task Management", () => {
 
       expect(startResult.task.status).toBe("in_progress")
       expect(startResult.message).toBe(
-        "Task 'Test' started. No incomplete subtasks found.",
+        "Task 'Test' started. No incomplete subtasks found.\nWhen the task is finished, please run 'completeTask' to complete it.",
       )
       expect(startResult.started_tasks).toHaveLength(1)
       expect(startResult.started_tasks[0]?.id).toBe(result.task.id)
@@ -565,6 +686,9 @@ describe("Task Management", () => {
       expect(startResult.message).toContain(
         "Direct subtask 'Child 1' also started automatically",
       )
+      expect(startResult.message).toContain(
+        "When the task is finished, please run 'completeTask' to complete it.",
+      )
 
       // Verify child 2 is still todo
       const child2 = getTask(childResult2.task.id)
@@ -590,7 +714,7 @@ describe("Task Management", () => {
       expect(startResult.task.status).toBe("in_progress")
       expect(startResult.started_tasks).toHaveLength(1) // Only parent task
       expect(startResult.message).toBe(
-        "Task 'Parent Task' started. No incomplete subtasks found.",
+        "Task 'Parent Task' started. No incomplete subtasks found.\nWhen the task is finished, please run 'completeTask' to complete it.",
       )
     })
 
@@ -856,6 +980,77 @@ describe("Task Management", () => {
       // Hierarchy should be in order
       expect(rootIndex).toBeLessThan(branchAIndex)
       expect(branchAIndex).toBeLessThan(leafA1Index)
+    })
+
+    it("should aggregate completion criteria and constraints from hierarchy", () => {
+      // Create hierarchical tasks with criteria and constraints
+      const rootResult = createTask({
+        completion_criteria: ["Root criteria 1", "Root criteria 2"],
+        constraints: ["Root constraint 1"],
+        name: "Root Task",
+      })
+      const childResult = createTask({
+        completion_criteria: ["Child criteria 1"],
+        constraints: ["Child constraint 1", "Child constraint 2"],
+        name: "Child Task",
+        parentId: rootResult.task.id,
+      })
+
+      // Start child task
+      const startResult = startTask(childResult.task.id)
+
+      // Should aggregate criteria and constraints from both child and parent
+      expect(startResult.aggregated_completion_criteria).toEqual([
+        "Child criteria 1",
+        "Root criteria 1",
+        "Root criteria 2",
+      ])
+      expect(startResult.aggregated_constraints).toEqual([
+        "Child constraint 1",
+        "Child constraint 2",
+        "Root constraint 1",
+      ])
+    })
+
+    it("should return empty arrays when no criteria or constraints are set", () => {
+      const taskResult = createTask({ name: "Task without criteria" })
+
+      const startResult = startTask(taskResult.task.id)
+
+      expect(startResult.aggregated_completion_criteria).toEqual([])
+      expect(startResult.aggregated_constraints).toEqual([])
+    })
+
+    it("should aggregate criteria and constraints from multiple hierarchy levels", () => {
+      // Create 3-level hierarchy with different criteria/constraints
+      const level1Result = createTask({
+        completion_criteria: ["L1 criteria"],
+        constraints: ["L1 constraint"],
+        name: "Level 1",
+      })
+      const level2Result = createTask({
+        completion_criteria: ["L2 criteria"],
+        name: "Level 2",
+        parentId: level1Result.task.id,
+      })
+      const level3Result = createTask({
+        constraints: ["L3 constraint"],
+        name: "Level 3",
+        parentId: level2Result.task.id,
+      })
+
+      // Start deepest task
+      const startResult = startTask(level3Result.task.id)
+
+      // Should aggregate from all levels
+      expect(startResult.aggregated_completion_criteria).toEqual([
+        "L2 criteria",
+        "L1 criteria",
+      ])
+      expect(startResult.aggregated_constraints).toEqual([
+        "L3 constraint",
+        "L1 constraint",
+      ])
     })
   })
 
