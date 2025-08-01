@@ -11,13 +11,13 @@
     //     }
     //   }
     // }
-    "canary": {
-      "command": "npx",
-      "args": ["-y", "task-orchestrator-mcp@canary"],
-      "env": {
-        "FILE_PATH": "${workspaceFolder}/task.json"
-      }
-    }
+    // "canary": {
+    //   "command": "npx",
+    //   "args": ["-y", "task-orchestrator-mcp@canary"],
+    //   "env": {
+    //     "FILE_PATH": "${workspaceFolder}/task.json"
+    //   }
+    // }
     // "task-orchestrator-mcp": {
     //   "command": "npx",
     //   "args": ["-y", "task-orchestrator-mcp@latest"],
@@ -25,5 +25,17 @@
     //     "FILE_PATH": "${workspaceFolder}/task.json"
     //   }
     // }
+    "serena": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena-mcp-server",
+        "--context",
+        "ide-assistant",
+        "--mode",
+        "one-shot"
+      ]
+    }
   }
 }

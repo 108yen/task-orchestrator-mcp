@@ -181,6 +181,65 @@ describe("Basic CRUD Operations Integration Tests", () => {
       expect(updatedParent.tasks[2].name).toBe("child 3")
       expect(updatedParent.tasks[3].name).toBe("child at end")
     })
+
+    it("should create a task with completion criteria and constraints", async () => {
+      const result = (await client.callTool({
+        arguments: {
+          completion_criteria: ["Criteria 1", "Criteria 2"],
+          constraints: ["Constraint 1"],
+          description: "Task with criteria and constraints",
+          name: "Test Task",
+        },
+        name: "createTask",
+      })) as MCPResponse
+
+      expect(result).toEqual({
+        content: [{ text: expect.any(String), type: "text" }],
+      })
+
+      const response = parseMCPResponse(result)
+      expect(response.task).toEqual({
+        completion_criteria: ["Criteria 1", "Criteria 2"],
+        constraints: ["Constraint 1"],
+        description: "Task with criteria and constraints",
+        id: expect.any(String),
+        name: "Test Task",
+        status: "todo",
+        tasks: [],
+      })
+    })
+
+    it("should create subtasks with completion criteria and constraints", async () => {
+      const result = (await client.callTool({
+        arguments: {
+          name: "Parent Task",
+          tasks: [
+            {
+              completion_criteria: ["Sub criteria"],
+              constraints: ["Sub constraint"],
+              name: "Subtask 1",
+            },
+            {
+              name: "Subtask 2",
+            },
+          ],
+        },
+        name: "createTask",
+      })) as MCPResponse
+
+      const response = parseMCPResponse(result)
+      expect(response.task.tasks).toHaveLength(2)
+      expect(response.task.tasks[0]).toMatchObject({
+        completion_criteria: ["Sub criteria"],
+        constraints: ["Sub constraint"],
+        name: "Subtask 1",
+      })
+      expect(response.task.tasks[1]).toMatchObject({
+        name: "Subtask 2",
+      })
+      expect(response.task.tasks[1].completion_criteria).toBeUndefined()
+      expect(response.task.tasks[1].constraints).toBeUndefined()
+    })
   })
 
   describe("getTask", () => {
@@ -449,6 +508,51 @@ describe("Basic CRUD Operations Integration Tests", () => {
       expect(response.message).toBe(
         "Task 'task to start' started. No incomplete subtasks found.\nWhen the task is finished, please run 'completeTask' to complete it.",
       )
+    })
+
+    it("should aggregate completion criteria and constraints when starting a task", async () => {
+      // Create parent task with criteria and constraints
+      const parentResult = (await client.callTool({
+        arguments: {
+          completion_criteria: ["Parent criteria 1", "Parent criteria 2"],
+          constraints: ["Parent constraint 1"],
+          name: "Parent Task",
+        },
+        name: "createTask",
+      })) as MCPResponse
+      const parentTask = parseMCPResponse(parentResult).task
+
+      // Create child task with its own criteria and constraints
+      const childResult = (await client.callTool({
+        arguments: {
+          completion_criteria: ["Child criteria 1"],
+          constraints: ["Child constraint 1", "Child constraint 2"],
+          name: "Child Task",
+          parentId: parentTask.id,
+        },
+        name: "createTask",
+      })) as MCPResponse
+      const childTask = parseMCPResponse(childResult).task
+
+      // Start child task
+      const startResult = (await client.callTool({
+        arguments: {
+          id: childTask.id,
+        },
+        name: "startTask",
+      })) as MCPResponse
+
+      const response = parseMCPResponse(startResult)
+      expect(response.aggregated_completion_criteria).toEqual([
+        "Child criteria 1",
+        "Parent criteria 1",
+        "Parent criteria 2",
+      ])
+      expect(response.aggregated_constraints).toEqual([
+        "Child constraint 1",
+        "Child constraint 2",
+        "Parent constraint 1",
+      ])
     })
   })
 

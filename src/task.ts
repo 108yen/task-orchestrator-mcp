@@ -56,6 +56,61 @@ export function findParentTask(
 }
 
 /**
+ * Aggregate completion criteria and constraints from task hierarchy
+ * @param taskId - Target task ID
+ * @param allTasks - Array of root tasks
+ * @returns Aggregated criteria and constraints
+ */
+export function aggregateCriteriaFromHierarchy(
+  taskId: string,
+  allTasks: Task[],
+): {
+  aggregated_completion_criteria: string[]
+  aggregated_constraints: string[]
+} {
+  const task = findTaskById(allTasks, taskId)
+  if (!task) {
+    return {
+      aggregated_completion_criteria: [],
+      aggregated_constraints: [],
+    }
+  }
+
+  const allCriteria: string[] = []
+  const allConstraints: string[] = []
+
+  // Add current task's criteria and constraints
+  if (task.completion_criteria) {
+    allCriteria.push(...task.completion_criteria)
+  }
+  if (task.constraints) {
+    allConstraints.push(...task.constraints)
+  }
+
+  // Walk up the hierarchy to collect parent criteria and constraints
+  let currentTaskId = taskId
+  let parentTask = findParentTask(allTasks, currentTaskId)
+
+  while (parentTask) {
+    if (parentTask.completion_criteria) {
+      allCriteria.push(...parentTask.completion_criteria)
+    }
+    if (parentTask.constraints) {
+      allConstraints.push(...parentTask.constraints)
+    }
+
+    // Move up the hierarchy
+    currentTaskId = parentTask.id
+    parentTask = findParentTask(allTasks, currentTaskId)
+  }
+
+  return {
+    aggregated_completion_criteria: allCriteria,
+    aggregated_constraints: allConstraints,
+  }
+}
+
+/**
  * Flatten nested task structure into a single array
  * @param tasks Array of tasks to flatten
  * @returns Flat array of all tasks
@@ -126,6 +181,8 @@ export function updateTaskInPlace(
 }
 
 export interface TaskInput {
+  completion_criteria?: string[]
+  constraints?: string[]
   description?: string
   name: string
   tasks?: TaskInput[]
@@ -137,6 +194,8 @@ export interface TaskInput {
  * @returns Created task with optional recommendation message
  */
 export function createTask(params: {
+  completion_criteria?: string[]
+  constraints?: string[]
   description?: string
   insertIndex?: number
   name: string
@@ -144,6 +203,8 @@ export function createTask(params: {
   tasks?: TaskInput[]
 }): { message?: string; task: Task } {
   const {
+    completion_criteria,
+    constraints,
     description = "",
     insertIndex,
     name,
@@ -153,6 +214,26 @@ export function createTask(params: {
 
   if (!name || typeof name !== "string" || name.trim() === "") {
     throw new Error("Task name is required and must be a non-empty string")
+  }
+
+  // Validate completion_criteria if provided
+  if (completion_criteria !== undefined) {
+    if (!Array.isArray(completion_criteria)) {
+      throw new Error("Completion criteria must be an array")
+    }
+    if (completion_criteria.some((criteria) => typeof criteria !== "string")) {
+      throw new Error("All completion criteria must be strings")
+    }
+  }
+
+  // Validate constraints if provided
+  if (constraints !== undefined) {
+    if (!Array.isArray(constraints)) {
+      throw new Error("Constraints must be an array")
+    }
+    if (constraints.some((constraint) => typeof constraint !== "string")) {
+      throw new Error("All constraints must be strings")
+    }
   }
 
   // Validate subtasks if provided
@@ -198,6 +279,32 @@ export function createTask(params: {
         throw new Error(`Task description at ${path} must be a string`)
       }
 
+      // Validate completion_criteria if provided
+      if (task.completion_criteria !== undefined) {
+        if (!Array.isArray(task.completion_criteria)) {
+          throw new Error(`Completion criteria at ${path} must be an array`)
+        }
+        if (
+          task.completion_criteria.some(
+            (criteria) => typeof criteria !== "string",
+          )
+        ) {
+          throw new Error(`All completion criteria at ${path} must be strings`)
+        }
+      }
+
+      // Validate constraints if provided
+      if (task.constraints !== undefined) {
+        if (!Array.isArray(task.constraints)) {
+          throw new Error(`Constraints at ${path} must be an array`)
+        }
+        if (
+          task.constraints.some((constraint) => typeof constraint !== "string")
+        ) {
+          throw new Error(`All constraints at ${path} must be strings`)
+        }
+      }
+
       // Validate subtasks recursively
       if (task.tasks) {
         if (!Array.isArray(task.tasks)) {
@@ -240,6 +347,12 @@ export function createTask(params: {
   const processSubtasks = (inputTasks: TaskInput[]): Task[] => {
     return inputTasks.map((inputTask) => {
       const processedTask: Task = {
+        completion_criteria: inputTask.completion_criteria?.length
+          ? inputTask.completion_criteria
+          : undefined,
+        constraints: inputTask.constraints?.length
+          ? inputTask.constraints
+          : undefined,
         description: inputTask.description || "",
         id: randomUUID(),
         name: inputTask.name,
@@ -252,6 +365,10 @@ export function createTask(params: {
   }
 
   const newTask: Task = {
+    completion_criteria: completion_criteria?.length
+      ? completion_criteria
+      : undefined,
+    constraints: constraints?.length ? constraints : undefined,
     description: description.trim(),
     id: randomUUID(),
     name: name.trim(),
@@ -639,6 +756,8 @@ function updateParentStatuses(taskId: string, tasks: Task[]): Task[] {
  * @returns Updated task with optional subtask information and hierarchy summary
  */
 export function startTask(id: string): {
+  aggregated_completion_criteria: string[]
+  aggregated_constraints: string[]
   hierarchy_summary?: string
   message?: string
   started_tasks: Task[]
@@ -665,6 +784,10 @@ export function startTask(id: string): {
 
   // Validate execution order - check if all preceding sibling tasks are completed
   validateExecutionOrder(task, tasks)
+
+  // Aggregate completion criteria and constraints from hierarchy
+  const { aggregated_completion_criteria, aggregated_constraints } =
+    aggregateCriteriaFromHierarchy(id, tasks)
 
   // Check if the task to be started is a leaf node
   const isLeafNode = task.tasks.length === 0
@@ -751,6 +874,8 @@ export function startTask(id: string): {
   const hierarchySummary = generateHierarchySummary(tasks, changedTaskIds)
 
   return {
+    aggregated_completion_criteria,
+    aggregated_constraints,
     hierarchy_summary: hierarchySummary.table,
     message,
     started_tasks: startedTasks,
