@@ -32,7 +32,7 @@ export function registerTools(): void {
     {
       description:
         "Create a new task with optional parent and index positioning.\n\n" +
-        "This tool initiates a new workflow for handling user requests. The workflow is as follows:\n" +
+        "This tool initiates a new workflow for handling user requests. To manage tasks, you MUST always run this tool first. The workflow is as follows:\n" +
         "1. Create tasks with the provided name and optional description. Tasks are organized in a hierarchical structure where subtasks can be created by specifying parentId.\n" +
         "2. Tasks are ordered by their position in the parent's tasks array. Use insertIndex to specify position (defaults to end).\n" +
         "3. After task creation, you MUST call the `startTask` tool to begin processing the task.\n" +
