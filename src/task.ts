@@ -9,6 +9,18 @@ import type {
 import { readTasks, writeTasks } from "./storage.js"
 
 // ============================================
+// Common error messages
+// ============================================
+
+const ERROR_MESSAGES = {
+  INVALID_TASK_ID: "Task ID is required and must be a string",
+  TASK_ALREADY_COMPLETED: (id: string) => `Task '${id}' is already completed`,
+  TASK_ALREADY_IN_PROGRESS: (id: string) =>
+    `Task '${id}' is already in progress`,
+  TASK_NOT_FOUND: (id: string) => `Task with id '${id}' not found`,
+} as const
+
+// ============================================
 // Helper functions for nested task operations
 // ============================================
 
@@ -193,24 +205,17 @@ export interface TaskInput {
  * @param params Task creation parameters
  * @returns Created task with optional recommendation message
  */
-export function createTask(params: {
+/**
+ * Validate basic task creation parameters
+ * @param params Task creation parameters
+ */
+function validateCreateTaskBasicParams(params: {
   completion_criteria?: string[]
   constraints?: string[]
-  description?: string
   insertIndex?: number
   name: string
-  parentId?: string
-  tasks?: TaskInput[]
-}): { message?: string; task: Task } {
-  const {
-    completion_criteria,
-    constraints,
-    description = "",
-    insertIndex,
-    name,
-    parentId,
-    tasks: subtasks,
-  } = params
+}): void {
+  const { completion_criteria, constraints, insertIndex, name } = params
 
   if (!name || typeof name !== "string" || name.trim() === "") {
     throw new Error("Task name is required and must be a non-empty string")
@@ -236,6 +241,82 @@ export function createTask(params: {
     }
   }
 
+  // Validate insertIndex if provided
+  if (insertIndex !== undefined && typeof insertIndex !== "number") {
+    throw new Error("Insert index must be a number")
+  }
+}
+
+/**
+ * Validate a single TaskInput object recursively
+ * @param taskInput Task input to validate
+ * @param path Path for error reporting
+ * @param depth Current nesting depth
+ */
+function validateTaskInput(taskInput: unknown, path: string, depth = 0): void {
+  // Prevent excessive nesting
+  if (depth > 10) {
+    throw new Error(`Task hierarchy too deep`)
+  }
+
+  if (
+    taskInput === null ||
+    typeof taskInput !== "object" ||
+    Array.isArray(taskInput)
+  ) {
+    throw new Error(`Task at ${path} must be an object`)
+  }
+
+  const task = taskInput as TaskInput
+
+  if (!task.name || typeof task.name !== "string" || task.name.trim() === "") {
+    throw new Error(`Task at ${path} must have a non-empty name`)
+  }
+
+  // Validate description if provided
+  if (task.description !== undefined && typeof task.description !== "string") {
+    throw new Error(`Task description at ${path} must be a string`)
+  }
+
+  // Validate completion_criteria if provided
+  if (task.completion_criteria !== undefined) {
+    if (!Array.isArray(task.completion_criteria)) {
+      throw new Error(`Completion criteria at ${path} must be an array`)
+    }
+    if (
+      task.completion_criteria.some((criteria) => typeof criteria !== "string")
+    ) {
+      throw new Error(`All completion criteria at ${path} must be strings`)
+    }
+  }
+
+  // Validate constraints if provided
+  if (task.constraints !== undefined) {
+    if (!Array.isArray(task.constraints)) {
+      throw new Error(`Constraints at ${path} must be an array`)
+    }
+    if (task.constraints.some((constraint) => typeof constraint !== "string")) {
+      throw new Error(`All constraints at ${path} must be strings`)
+    }
+  }
+
+  // Validate subtasks recursively
+  if (task.tasks) {
+    if (!Array.isArray(task.tasks)) {
+      throw new Error(`Tasks property at ${path} must be an array`)
+    }
+    for (let i = 0; i < task.tasks.length; i++) {
+      const childTask = task.tasks[i]
+      validateTaskInput(childTask, `${path}.tasks[${i}]`, depth + 1)
+    }
+  }
+}
+
+/**
+ * Validate subtasks array if provided
+ * @param subtasks Subtasks to validate
+ */
+function validateSubtasks(subtasks?: TaskInput[]): void {
   // Validate subtasks if provided
   if (subtasks && !Array.isArray(subtasks)) {
     throw new Error("Tasks parameter must be an array")
@@ -243,128 +324,83 @@ export function createTask(params: {
 
   // Validate each subtask's required fields recursively
   if (subtasks) {
-    const validateTaskInput = (
-      taskInput: unknown,
-      path: string,
-      depth = 0,
-    ): void => {
-      // Prevent excessive nesting
-      if (depth > 10) {
-        throw new Error(`Task hierarchy too deep`)
-      }
-
-      if (
-        taskInput === null ||
-        typeof taskInput !== "object" ||
-        Array.isArray(taskInput)
-      ) {
-        throw new Error(`Task at ${path} must be an object`)
-      }
-
-      const task = taskInput as TaskInput
-
-      if (
-        !task.name ||
-        typeof task.name !== "string" ||
-        task.name.trim() === ""
-      ) {
-        throw new Error(`Task at ${path} must have a non-empty name`)
-      }
-
-      // Validate description if provided
-      if (
-        task.description !== undefined &&
-        typeof task.description !== "string"
-      ) {
-        throw new Error(`Task description at ${path} must be a string`)
-      }
-
-      // Validate completion_criteria if provided
-      if (task.completion_criteria !== undefined) {
-        if (!Array.isArray(task.completion_criteria)) {
-          throw new Error(`Completion criteria at ${path} must be an array`)
-        }
-        if (
-          task.completion_criteria.some(
-            (criteria) => typeof criteria !== "string",
-          )
-        ) {
-          throw new Error(`All completion criteria at ${path} must be strings`)
-        }
-      }
-
-      // Validate constraints if provided
-      if (task.constraints !== undefined) {
-        if (!Array.isArray(task.constraints)) {
-          throw new Error(`Constraints at ${path} must be an array`)
-        }
-        if (
-          task.constraints.some((constraint) => typeof constraint !== "string")
-        ) {
-          throw new Error(`All constraints at ${path} must be strings`)
-        }
-      }
-
-      // Validate subtasks recursively
-      if (task.tasks) {
-        if (!Array.isArray(task.tasks)) {
-          throw new Error(`Tasks property at ${path} must be an array`)
-        }
-        for (let i = 0; i < task.tasks.length; i++) {
-          const childTask = task.tasks[i]
-          validateTaskInput(childTask, `${path}.tasks[${i}]`, depth + 1)
-        }
-      }
-    }
-
     for (let i = 0; i < subtasks.length; i++) {
       const subtask = subtasks[i]
       validateTaskInput(subtask, `tasks[${i}]`, 1)
     }
   }
-  // Validate insertIndex if provided
-  if (insertIndex !== undefined && typeof insertIndex !== "number") {
-    throw new Error("Insert index must be a number")
+}
+
+/**
+ * Validate and find parent task if parentId is provided
+ * @param parentId Parent task ID
+ * @param allTasks All tasks to search in
+ * @returns Parent task if found, undefined otherwise
+ */
+function validateAndFindParentTask(
+  parentId: string | undefined,
+  allTasks: Task[],
+): Task | undefined {
+  if (!parentId) {
+    return undefined
   }
 
-  const allTasks = readTasks()
+  // Validate parentId format (should be UUID)
+  if (typeof parentId !== "string" || parentId.trim() === "") {
+    throw new Error("Parent ID must be a non-empty string")
+  }
 
-  // Validate parentId exists if provided
-  let parentTask: Task | undefined
-  if (parentId) {
-    // Validate parentId format (should be UUID)
-    if (typeof parentId !== "string" || parentId.trim() === "") {
-      throw new Error("Parent ID must be a non-empty string")
+  const parentTask = findTaskById(allTasks, parentId)
+  if (!parentTask) {
+    throw new Error(`Parent task with id '${parentId}' not found`)
+  }
+
+  return parentTask
+}
+
+/**
+ * Process subtasks recursively from TaskInput to Task
+ * @param inputTasks Array of TaskInput objects
+ * @returns Array of Task objects
+ */
+function processSubtasks(inputTasks: TaskInput[]): Task[] {
+  return inputTasks.map((inputTask) => {
+    const processedTask: Task = {
+      completion_criteria: inputTask.completion_criteria?.length
+        ? inputTask.completion_criteria
+        : undefined,
+      constraints: inputTask.constraints?.length
+        ? inputTask.constraints
+        : undefined,
+      description: inputTask.description || "",
+      id: randomUUID(),
+      name: inputTask.name,
+      resolution: undefined,
+      status: "todo",
+      tasks: inputTask.tasks ? processSubtasks(inputTask.tasks) : [],
     }
+    return processedTask
+  })
+}
 
-    parentTask = findTaskById(allTasks, parentId)
-    if (!parentTask) {
-      throw new Error(`Parent task with id '${parentId}' not found`)
-    }
-  }
+/**
+ * Create a new Task object from input parameters
+ * @param params Task creation parameters
+ * @param subtasks Processed subtasks
+ * @returns New Task object
+ */
+function createTaskObject(
+  params: {
+    completion_criteria?: string[]
+    constraints?: string[]
+    description?: string
+    name: string
+  },
+  subtasks?: TaskInput[],
+): Task {
+  const { completion_criteria, constraints, description = "", name } = params
 
-  // Helper function to process subtasks recursively
-  const processSubtasks = (inputTasks: TaskInput[]): Task[] => {
-    return inputTasks.map((inputTask) => {
-      const processedTask: Task = {
-        completion_criteria: inputTask.completion_criteria?.length
-          ? inputTask.completion_criteria
-          : undefined,
-        constraints: inputTask.constraints?.length
-          ? inputTask.constraints
-          : undefined,
-        description: inputTask.description || "",
-        id: randomUUID(),
-        name: inputTask.name,
-        resolution: undefined,
-        status: "todo",
-        tasks: inputTask.tasks ? processSubtasks(inputTask.tasks) : [],
-      }
-      return processedTask
-    })
-  }
-
-  const newTask: Task = {
+  return {
     completion_criteria: completion_criteria?.length
       ? completion_criteria
       : undefined,
@@ -376,68 +412,137 @@ export function createTask(params: {
     status: "todo",
     tasks: subtasks ? processSubtasks(subtasks) : [],
   }
+}
 
+/**
+ * Normalize insert index to a valid array position
+ * @param insertIndex Original insert index
+ * @param arrayLength Length of target array
+ * @returns Normalized index
+ */
+function normalizeInsertIndex(
+  insertIndex: number | undefined,
+  arrayLength: number,
+): number {
+  if (insertIndex === undefined) {
+    return arrayLength
+  }
+
+  // Handle infinite values by treating them as end-of-array
+  if (!Number.isFinite(insertIndex)) {
+    return arrayLength
+  }
+
+  // Handle negative values by treating them as end-of-array
+  if (insertIndex < 0) {
+    return arrayLength
+  }
+
+  // Handle extremely large values by treating them as end-of-array
+  if (insertIndex > arrayLength) {
+    return arrayLength
+  }
+
+  return insertIndex
+}
+
+/**
+ * Insert task into the appropriate parent or root tasks array
+ * @param newTask Task to insert
+ * @param parentTask Parent task if any
+ * @param allTasks Root tasks array
+ * @param insertIndex Position to insert at
+ */
+function insertTaskIntoHierarchy(
+  newTask: Task,
+  parentTask: Task | undefined,
+  allTasks: Task[],
+  insertIndex?: number,
+): void {
   if (parentTask) {
     // Insert into parent's tasks array
-    if (insertIndex !== undefined) {
-      // Handle special values for insertIndex
-      let normalizedIndex = insertIndex
-
-      // Handle infinite values by treating them as end-of-array
-      if (!Number.isFinite(insertIndex)) {
-        normalizedIndex = parentTask.tasks.length
-      }
-
-      // Handle negative values by treating them as end-of-array
-      if (insertIndex < 0) {
-        normalizedIndex = parentTask.tasks.length
-      }
-
-      // Handle extremely large values by treating them as end-of-array
-      if (insertIndex > parentTask.tasks.length) {
-        normalizedIndex = parentTask.tasks.length
-      }
-
-      parentTask.tasks.splice(normalizedIndex, 0, newTask)
-    } else {
-      // Insert at end
-      parentTask.tasks.push(newTask)
-    }
+    const normalizedIndex = normalizeInsertIndex(
+      insertIndex,
+      parentTask.tasks.length,
+    )
+    parentTask.tasks.splice(normalizedIndex, 0, newTask)
   } else {
     // Add as root task
-    if (insertIndex !== undefined) {
-      // Handle special values for insertIndex
-      let normalizedIndex = insertIndex
-
-      // Handle infinite values by treating them as end-of-array
-      if (!Number.isFinite(insertIndex)) {
-        normalizedIndex = allTasks.length
-      }
-
-      // Handle negative values by treating them as end-of-array
-      if (insertIndex < 0) {
-        normalizedIndex = allTasks.length
-      }
-
-      // Handle extremely large values by treating them as end-of-array
-      if (insertIndex > allTasks.length) {
-        normalizedIndex = allTasks.length
-      }
-
-      allTasks.splice(normalizedIndex, 0, newTask)
-    } else {
-      // Insert at end
-      allTasks.push(newTask)
-    }
+    const normalizedIndex = normalizeInsertIndex(insertIndex, allTasks.length)
+    allTasks.splice(normalizedIndex, 0, newTask)
   }
+}
 
+/**
+ * Generate appropriate message for task creation
+ * @param newTask Created task
+ * @param parentId Parent task ID if any
+ * @returns Message string or undefined
+ */
+function generateCreationMessage(
+  newTask: Task,
+  parentId?: string,
+): string | undefined {
+  // Generate recommendation message for root tasks
+  if (!parentId) {
+    return `Root task '${newTask.name}' created successfully. Consider breaking this down into smaller subtasks using createTask with parentId='${newTask.id}' to better organize your workflow and track progress.`
+  }
+  return undefined
+}
+
+export function createTask(params: {
+  completion_criteria?: string[]
+  constraints?: string[]
+  description?: string
+  insertIndex?: number
+  name: string
+  parentId?: string
+  tasks?: TaskInput[]
+}): { message?: string; task: Task } {
+  const {
+    completion_criteria,
+    constraints,
+    description = "",
+    insertIndex,
+    name,
+    parentId,
+    tasks: subtasks,
+  } = params
+
+  // Validate basic parameters
+  validateCreateTaskBasicParams({
+    completion_criteria,
+    constraints,
+    insertIndex,
+    name,
+  })
+
+  // Validate subtasks
+  validateSubtasks(subtasks)
+
+  // Load and validate parent task
+  const allTasks = readTasks()
+  const parentTask = validateAndFindParentTask(parentId, allTasks)
+
+  // Create new task object
+  const newTask = createTaskObject(
+    {
+      completion_criteria,
+      constraints,
+      description,
+      name,
+    },
+    subtasks,
+  )
+
+  // Insert task into hierarchy
+  insertTaskIntoHierarchy(newTask, parentTask, allTasks, insertIndex)
+
+  // Save to storage
   writeTasks(allTasks)
 
-  // Generate recommendation message for root tasks
-  let message: string | undefined
-  if (!parentId) {
-    message = `Root task '${newTask.name}' created successfully. Consider breaking this down into smaller subtasks using createTask with parentId='${newTask.id}' to better organize your workflow and track progress.`
-  }
+  // Generate response message
+  const message = generateCreationMessage(newTask, parentId)
 
   return { message, task: newTask }
 }
@@ -449,14 +554,14 @@ export function createTask(params: {
  */
 export function getTask(id: string): Task {
   if (!id || typeof id !== "string") {
-    throw new Error("Task ID is required and must be a string")
+    throw new Error(ERROR_MESSAGES.INVALID_TASK_ID)
   }
 
   const tasks = readTasks()
   const task = findTaskById(tasks, id)
 
   if (!task) {
-    throw new Error(`Task with id '${id}' not found`)
+    throw new Error(ERROR_MESSAGES.TASK_NOT_FOUND(id))
   }
 
   return task
@@ -500,7 +605,7 @@ export function updateTask(params: {
   const { description, id, name, resolution, status } = params
 
   if (!id || typeof id !== "string") {
-    throw new Error("Task ID is required and must be a string")
+    throw new Error(ERROR_MESSAGES.INVALID_TASK_ID)
   }
 
   const tasks = readTasks()
@@ -755,19 +860,17 @@ function updateParentStatuses(taskId: string, tasks: Task[]): Task[] {
  * @param id Task ID
  * @returns Updated task with optional subtask information and hierarchy summary
  */
-export function startTask(id: string): {
-  aggregated_completion_criteria: string[]
-  aggregated_constraints: string[]
-  hierarchy_summary?: string
-  message?: string
-  started_tasks: Task[]
-  task: Task
-} {
+/**
+ * Validate basic parameters for starting a task
+ * @param id Task ID
+ * @param tasks All tasks
+ * @returns The task to start
+ */
+function validateStartTaskParams(id: string, tasks: Task[]): Task {
   if (!id || typeof id !== "string") {
     throw new Error("Task ID is required and must be a string")
   }
 
-  const tasks = readTasks()
   const task = findTaskById(tasks, id)
 
   if (!task) {
@@ -782,22 +885,37 @@ export function startTask(id: string): {
     throw new Error(`Task '${id}' is already in progress`)
   }
 
-  // Validate execution order - check if all preceding sibling tasks are completed
-  validateExecutionOrder(task, tasks)
+  return task
+}
 
-  // Aggregate completion criteria and constraints from hierarchy
-  const { aggregated_completion_criteria, aggregated_constraints } =
-    aggregateCriteriaFromHierarchy(id, tasks)
-
+/**
+ * Process leaf node reset if necessary
+ * @param task Task being started
+ * @param tasks All tasks
+ * @returns Array of reset tasks
+ */
+function processLeafNodeReset(task: Task, tasks: Task[]): Task[] {
   // Check if the task to be started is a leaf node
   const isLeafNode = task.tasks.length === 0
 
   // If starting a leaf node, reset any existing in_progress leaf nodes
-  let resetLeafTasks: Task[] = []
   if (isLeafNode) {
-    resetLeafTasks = resetInProgressLeafNodes(tasks)
+    return resetInProgressLeafNodes(tasks)
   }
 
+  return []
+}
+
+/**
+ * Start the main task and update parent statuses
+ * @param id Task ID
+ * @param tasks All tasks
+ * @returns Object containing updated task and started tasks list
+ */
+function startMainTaskAndUpdateParents(
+  id: string,
+  tasks: Task[],
+): { startedTasks: Task[]; updatedTask: Task } {
   // Start the main task
   const updatedTask = updateTaskInPlace(tasks, id, (task) => ({
     ...task,
@@ -811,44 +929,80 @@ export function startTask(id: string): {
   const startedTasks: Task[] = [updatedTask]
 
   // Update parent statuses based on the new in_progress task
-  const updatedParents = updateParentStatuses(task.id, tasks)
+  const updatedParents = updateParentStatuses(id, tasks)
   startedTasks.push(...updatedParents)
 
+  return { startedTasks, updatedTask }
+}
+
+/**
+ * Process execution path for nested task starting
+ * @param id Main task ID
+ * @param tasks All tasks
+ * @param startedTasks Current list of started tasks
+ * @returns Execution path information
+ */
+function processExecutionPath(
+  id: string,
+  tasks: Task[],
+  startedTasks: Task[],
+): { depth: number; executionPath?: Task[] } {
   // Find the deepest incomplete subtask and start all tasks in the execution path
   const deepestResult = findDeepestIncompleteSubtask(id, tasks)
-  let message: string
 
-  if (deepestResult) {
-    const { executionPath } = deepestResult
+  if (!deepestResult) {
+    return { depth: 0 }
+  }
 
-    // Start all tasks in the execution path (excluding the main task which is already started)
-    for (const pathTask of executionPath) {
-      // Use updateTaskInPlace instead of findIndex for nested structure
-      const updatedPathTask = updateTaskInPlace(tasks, pathTask.id, (task) => {
-        if (task.status === "todo") {
-          return {
-            ...task,
-            status: "in_progress",
-          }
+  const { executionPath } = deepestResult
+
+  // Start all tasks in the execution path (excluding the main task which is already started)
+  for (const pathTask of executionPath) {
+    // Use updateTaskInPlace instead of findIndex for nested structure
+    const updatedPathTask = updateTaskInPlace(tasks, pathTask.id, (task) => {
+      if (task.status === "todo") {
+        return {
+          ...task,
+          status: "in_progress",
         }
-        return task
-      })
+      }
+      return task
+    })
 
-      if (updatedPathTask && updatedPathTask.status === "in_progress") {
-        startedTasks.push(updatedPathTask)
+    if (updatedPathTask && updatedPathTask.status === "in_progress") {
+      startedTasks.push(updatedPathTask)
 
-        // Update parent statuses for each task in the execution path
-        const pathParentUpdates = updateParentStatuses(pathTask.id, tasks)
-        for (const parentUpdate of pathParentUpdates) {
-          // Only add if not already in startedTasks
-          if (!startedTasks.some((st) => st.id === parentUpdate.id)) {
-            startedTasks.push(parentUpdate)
-          }
+      // Update parent statuses for each task in the execution path
+      const pathParentUpdates = updateParentStatuses(pathTask.id, tasks)
+      for (const parentUpdate of pathParentUpdates) {
+        // Only add if not already in startedTasks
+        if (!startedTasks.some((st) => st.id === parentUpdate.id)) {
+          startedTasks.push(parentUpdate)
         }
       }
     }
+  }
 
-    const depth = executionPath.length
+  return { depth: executionPath.length, executionPath }
+}
+
+/**
+ * Generate appropriate message for task start operation
+ * @param task Main task that was started
+ * @param executionPath Execution path if any
+ * @param depth Execution path depth
+ * @param resetLeafTasks Tasks that were reset
+ * @returns Formatted message
+ */
+function generateStartTaskMessage(
+  task: Task,
+  executionPath: Task[] | undefined,
+  depth: number,
+  resetLeafTasks: Task[],
+): string {
+  let message: string
+
+  if (executionPath && depth > 0) {
     if (depth === 1) {
       message = `Task '${task.name}' started. Direct subtask '${executionPath[0]?.name}' also started automatically.`
     } else {
@@ -867,6 +1021,46 @@ export function startTask(id: string): {
 
   message += `\nWhen the task is finished, please run 'completeTask' to complete it.`
 
+  return message
+}
+
+export function startTask(id: string): {
+  aggregated_completion_criteria: string[]
+  aggregated_constraints: string[]
+  hierarchy_summary?: string
+  message?: string
+  started_tasks: Task[]
+  task: Task
+} {
+  // Load tasks and validate parameters
+  const tasks = readTasks()
+  const task = validateStartTaskParams(id, tasks)
+
+  // Validate execution order - check if all preceding sibling tasks are completed
+  validateExecutionOrder(task, tasks)
+
+  // Aggregate completion criteria and constraints from hierarchy
+  const { aggregated_completion_criteria, aggregated_constraints } =
+    aggregateCriteriaFromHierarchy(id, tasks)
+
+  // Process leaf node reset if necessary
+  const resetLeafTasks = processLeafNodeReset(task, tasks)
+
+  // Start the main task and update parent statuses
+  const { startedTasks, updatedTask } = startMainTaskAndUpdateParents(id, tasks)
+
+  // Process execution path for nested task starting
+  const { depth, executionPath } = processExecutionPath(id, tasks, startedTasks)
+
+  // Generate appropriate message
+  const message = generateStartTaskMessage(
+    task,
+    executionPath,
+    depth,
+    resetLeafTasks,
+  )
+
+  // Save changes
   writeTasks(tasks)
 
   // Generate hierarchy summary with changed task IDs
@@ -1201,13 +1395,12 @@ function autoCompleteParentTasks(tasks: Task[], completedTask: Task): Task[] {
  * @param params Completion parameters
  * @returns Next task information with progress summary
  */
-export function completeTask(params: { id: string; resolution: string }): {
-  message: string
-  next_task_id?: string
-  progress_summary: ProgressSummary
-} {
-  const { id, resolution } = params
-
+/**
+ * Validate parameters for completing a task
+ * @param id Task ID
+ * @param resolution Task resolution
+ */
+function validateCompleteTaskParams(id: string, resolution: string): void {
   if (!id || typeof id !== "string") {
     throw new Error("Task ID is required and must be a string")
   }
@@ -1219,9 +1412,15 @@ export function completeTask(params: { id: string; resolution: string }): {
   ) {
     throw new Error("Resolution is required and must be a non-empty string")
   }
+}
 
-  const tasks = readTasks()
-
+/**
+ * Find and validate task to complete
+ * @param id Task ID
+ * @param tasks All tasks
+ * @returns Task to complete
+ */
+function findAndValidateTaskToComplete(id: string, tasks: Task[]): Task {
   // Find the task using the recursive helper function
   const taskToComplete = findTaskById(tasks, id)
   if (!taskToComplete) {
@@ -1232,21 +1431,40 @@ export function completeTask(params: { id: string; resolution: string }): {
     throw new Error(`Task '${id}' is already completed`)
   }
 
+  return taskToComplete
+}
+
+/**
+ * Validate that task has no incomplete subtasks
+ * @param task Task to validate
+ */
+function validateNoIncompleteSubtasks(task: Task): void {
   // Check if the task has incomplete subtasks
-  if (taskToComplete.tasks.length > 0) {
-    const incompleteSubtasks = taskToComplete.tasks.filter(
-      (t) => t.status !== "done",
-    )
+  if (task.tasks.length > 0) {
+    const incompleteSubtasks = task.tasks.filter((t) => t.status !== "done")
     if (incompleteSubtasks.length > 0) {
       const incompleteNames = incompleteSubtasks
         .map((t) => `'${t.name}'`)
         .join(", ")
       throw new Error(
-        `Cannot complete task '${taskToComplete.name}' because it has incomplete subtasks: ${incompleteNames}. Please complete all subtasks first.`,
+        `Cannot complete task '${task.name}' because it has incomplete subtasks: ${incompleteNames}. Please complete all subtasks first.`,
       )
     }
   }
+}
 
+/**
+ * Complete task and handle auto-completion of parents
+ * @param id Task ID
+ * @param resolution Task resolution
+ * @param tasks All tasks
+ * @returns Object containing updated task and auto-completed parents
+ */
+function completeTaskAndAutoCompleteParents(
+  id: string,
+  resolution: string,
+  tasks: Task[],
+): { autoCompletedParents: Task[]; updatedTask: Task } {
   // Update task to completed using in-place update
   const updatedTask = updateTaskInPlace(tasks, id, (task) => ({
     ...task,
@@ -1261,6 +1479,61 @@ export function completeTask(params: { id: string; resolution: string }): {
   // Auto-complete parent tasks if all their subtasks are complete
   const autoCompletedParents = autoCompleteParentTasks(tasks, updatedTask)
 
+  return { autoCompletedParents, updatedTask }
+}
+
+/**
+ * Generate completion message based on auto-completed parents and next task
+ * @param taskToComplete Original task that was completed
+ * @param autoCompletedParents Auto-completed parent tasks
+ * @param nextTask Next task to execute if any
+ * @returns Formatted completion message
+ */
+function generateCompletionMessage(
+  taskToComplete: Task,
+  autoCompletedParents: Task[],
+  nextTask: Task | undefined,
+): string {
+  if (autoCompletedParents.length > 0) {
+    const parentNames = autoCompletedParents
+      .map((p: Task) => `'${p.name}'`)
+      .join(", ")
+    if (nextTask) {
+      return `Task '${taskToComplete.name}' completed. Auto-completed parent tasks: ${parentNames}. Next task: '${nextTask.name}'`
+    } else {
+      return `Task '${taskToComplete.name}' completed. Auto-completed parent tasks: ${parentNames}. No more tasks to execute.`
+    }
+  } else {
+    if (nextTask) {
+      return `Task '${taskToComplete.name}' completed. Next task: '${nextTask.name}'`
+    } else {
+      return `Task '${taskToComplete.name}' completed. No more tasks to execute.`
+    }
+  }
+}
+
+export function completeTask(params: { id: string; resolution: string }): {
+  message: string
+  next_task_id?: string
+  progress_summary: ProgressSummary
+} {
+  const { id, resolution } = params
+
+  // Validate input parameters
+  validateCompleteTaskParams(id, resolution)
+
+  // Load tasks and find task to complete
+  const tasks = readTasks()
+  const taskToComplete = findAndValidateTaskToComplete(id, tasks)
+
+  // Validate that task has no incomplete subtasks
+  validateNoIncompleteSubtasks(taskToComplete)
+
+  // Complete task and handle auto-completion of parents
+  const { autoCompletedParents, updatedTask } =
+    completeTaskAndAutoCompleteParents(id, resolution, tasks)
+
+  // Save changes
   writeTasks(tasks)
 
   // Generate progress summary with updated tasks and changed task IDs
@@ -1273,23 +1546,12 @@ export function completeTask(params: { id: string; resolution: string }): {
   // Find next task to execute
   const nextTask = findNextTask(tasks, updatedTask)
 
-  let message: string
-  if (autoCompletedParents.length > 0) {
-    const parentNames = autoCompletedParents
-      .map((p: Task) => `'${p.name}'`)
-      .join(", ")
-    if (nextTask) {
-      message = `Task '${taskToComplete.name}' completed. Auto-completed parent tasks: ${parentNames}. Next task: '${nextTask.name}'`
-    } else {
-      message = `Task '${taskToComplete.name}' completed. Auto-completed parent tasks: ${parentNames}. No more tasks to execute.`
-    }
-  } else {
-    if (nextTask) {
-      message = `Task '${taskToComplete.name}' completed. Next task: '${nextTask.name}'`
-    } else {
-      message = `Task '${taskToComplete.name}' completed. No more tasks to execute.`
-    }
-  }
+  // Generate completion message
+  const message = generateCompletionMessage(
+    taskToComplete,
+    autoCompletedParents,
+    nextTask,
+  )
 
   return {
     message,
