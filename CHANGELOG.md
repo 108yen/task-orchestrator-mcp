@@ -1,5 +1,15 @@
 # task-orchestrator-mcp
 
+## 1.1.0
+
+### Minor Changes
+
+- [#22](https://github.com/108yen/task-orchestrator-mcp/pull/22) [`0afd479`](https://github.com/108yen/task-orchestrator-mcp/commit/0afd479590fed4fd372ffea92a440123da5abc7a) Thanks [@108yen](https://github.com/108yen)! - Added the ability to manage task constraints and completion criteria.
+
+### Patch Changes
+
+- [#22](https://github.com/108yen/task-orchestrator-mcp/pull/22) [`46cc298`](https://github.com/108yen/task-orchestrator-mcp/commit/46cc2982c9fcf60d69486dbaf8e0366b355a14d8) Thanks [@108yen](https://github.com/108yen)! - Added `startTask` return message for suggesting run `completeTask` when task completed.
+
 ## 1.0.0
 
 ### Major Changes
